@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>새 시계 미리보기</title>
+<style>body{background:#2a2a2a;color:#ddd;font-family:-apple-system,sans-serif;padding:24px}
+.row{margin:0 0 26px}.lab{font-size:15px;margin-bottom:8px}.box{width:992px;height:232px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 3px #555}
+.small{width:248px;height:58px;border-radius:6px;overflow:hidden;margin-top:8px;box-shadow:0 0 0 2px #555}
+#hr{margin-bottom:18px}</style>
+<h2>새 시계 4가지 — Stream Deck Neo Infobar (248×58)</h2>
+<div id="hr">하늘(D) 시간대 미리 보기: <input type="range" min="0" max="24" step="0.25" id="h"> <span id="hv">지금</span> <button onclick="h.value='';hv.textContent='지금';fake=null">지금으로</button></div>
+<div id="list"></div>
+<script>document.write(`<script src="novel.js?v=${Date.now()}"><\/script>`)</script>
+<script>
+const names = {film:'A. 필름 카운터', lcd:'B. 카메라 LCD (노출계 바늘이 초마다)', walk:'C. 캐릭터 산책', sky:'D. 하늘 (실제 시간대 색·해/달)'};
+const FR = '../streamdeck_poof/com.cc.poofchar.sdPlugin/frames/idle_24/';
+const opt = { charFrame: (i) => FR + String(i).padStart(3, '0') + '.png' };
+let fake = null; const h = document.getElementById('h'), hv = document.getElementById('hv');
+h.oninput = () => { fake = Number(h.value); hv.textContent = fake + '시'; };
+const list = document.getElementById('list');
+for (const k of Object.keys(NOVEL)) list.insertAdjacentHTML('beforeend', `<div class="row"><div class="lab">${names[k]}</div><div class="box" id="b_${k}"></div><div class="small" id="s_${k}"></div></div>`);
+function draw(){ const now = new Date();
+  for (const k of Object.keys(NOVEL)) { let d = now;
+    if (k === 'sky' && fake !== null) { d = new Date(now); d.setHours(Math.floor(fake), Math.round((fake % 1) * 60)); }
+    const s = NOVEL[k](d, now.getTime(), opt);
+    document.getElementById('b_'+k).innerHTML = s.replace(`width='248' height='58'`, `width='992' height='232'`);
+    document.getElementById('s_'+k).innerHTML = s.replace(/id='g'/,"id='g2'").replace('url(#g)','url(#g2)'); }
+  requestAnimationFrame(draw); }
+draw();
+</script>

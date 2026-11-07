@@ -1,0 +1,26 @@
+{
+  "Actions": [
+    {
+      "Icon": "Images/action",
+      "Name": "펑 캐릭터",
+      "States": [{ "Image": "Images/key" }],
+      "Tooltip": "누를 때마다 펑! 하고 캐릭터가 바뀌고, 열린 앱을 전부 숨겨요",
+      "UUID": "com.cc.poofchar.toggle",
+      "Controllers": ["Keypad"],
+      "SupportedInMultiActions": false
+    }
+  ],
+  "Author": "cc",
+  "Category": "cc",
+  "CategoryIcon": "Images/plugin",
+  "CodePath": "plugin.js",
+  "Description": "누를 때마다 펑! 하고 24 ↔ 12 캐릭터가 바뀌고 평소엔 꿈틀꿈틀. 누르면 모든 앱 숨기기(데스크톱 앱) 실행",
+  "Icon": "Images/plugin",
+  "Name": "펑 캐릭터",
+  "Nodejs": { "Version": "20", "Debug": "disabled" },
+  "OS": [{ "Platform": "mac", "MinimumVersion": "12" }],
+  "SDKVersion": 2,
+  "Software": { "MinimumVersion": "6.4" },
+  "UUID": "com.cc.poofchar",
+  "Version": "1.0.0.0"
+}

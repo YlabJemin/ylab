@@ -1,0 +1,7 @@
+{
+  "fps" : 20,
+  "idleFrames" : 96,
+  "idleStartAfterPoof" : 13,
+  "poof_to12" : 33,
+  "poof_to24" : 33
+}

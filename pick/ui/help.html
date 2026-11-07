@@ -1,0 +1,82 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Pick 도움말</title>
+<style>
+@font-face{font-family:"Gowun Dodum";src:url(pick://app/fonts/GowunDodum-Regular.woff2) format("woff2")}
+html,body{margin:0;background:#fff;color:#222;font-family:'Gowun Dodum',sans-serif;font-size:13px;-webkit-user-select:none}
+body{padding:14px 18px 20px}
+h2{font-size:15px;margin:0 0 2px;color:#8a4634}
+p.lead{margin:0 0 14px;color:#888;font-size:12px}
+h4{font-size:11px;color:#8a4634;letter-spacing:.6px;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid #f3c2b2}
+.r{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:baseline;padding:4px 0}
+.r:nth-child(even){background:#fafafa}
+.k{white-space:nowrap}
+kbd{display:inline-block;font:inherit;font-size:11.5px;background:#f1f1f1;border:1px solid #d8d8d8;border-bottom-width:2px;border-radius:5px;padding:1px 6px;margin-right:3px;color:#222}
+.d{color:#555}
+.ft{margin-top:18px;padding-top:10px;border-top:1px solid #e2e2e2;font-size:11.5px;color:#c9735a;line-height:1.6}
+</style></head><body>
+<h2>Pick 도움말</h2><p class="lead">⌘ = command · ⇧ = shift · ⌥ = option</p>
+
+<h4>화면</h4>
+<div class="r"><span class="k"><kbd>Tab</kbd></span><span class="d">Bridge ↔ Map 전환</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>B</kbd></span><span class="d">필름스트립 접기 · 펴기</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>B</kbd></span><span class="d">필름스트립 아래 ↔ 오른쪽</span></div>
+<div class="r"><span class="k">위 바 버튼</span><span class="d">왼쪽 패널 접기 · 펴기</span></div>
+<div class="r"><span class="k">경계선 끌기</span><span class="d">왼쪽 패널 폭 · 아래 패널 높이 (더블클릭: 처음 크기)</span></div>
+<div class="r"><span class="k">아래 바 ▦ 단추</span><span class="d">필름스트립 한 줄 · 여러 줄</span></div>
+
+<h4>고르기</h4>
+<div class="r"><span class="k"><kbd>←</kbd><kbd>→</kbd></span><span class="d">옆 사진</span></div>
+<div class="r"><span class="k"><kbd>↑</kbd><kbd>↓</kbd></span><span class="d">위 · 아래 칸 사진 (여러 줄·오른쪽 배치·Map)</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>↑</kbd> <kbd>⌘</kbd><kbd>↓</kbd></span><span class="d">상위 폴더로 · 선택한 폴더로 들어가기 (폴더 방식, 브릿지와 같음)</span></div>
+<div class="r"><span class="k">선택 없이 <kbd>→</kbd> <kbd>←</kbd></span><span class="d">첫 항목 · 마지막 항목</span></div>
+<div class="r"><span class="k"><kbd>⇧</kbd><kbd>←</kbd><kbd>→</kbd></span><span class="d">선택 늘리기 · 줄이기</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd> + 클릭</span><span class="d">한 장씩 넣고 빼기</span></div>
+<div class="r"><span class="k"><kbd>⇧</kbd> + 클릭</span><span class="d">범위 선택</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>A</kbd></span><span class="d">전체 선택 (선택 불가 제외)</span></div>
+<div class="r"><span class="k">Map 줄 이름 클릭</span><span class="d">그 줄 전부 선택</span></div>
+
+<h4>별점 · 태그</h4>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd></span><span class="d">별점 · <kbd>⌘</kbd><kbd>0</kbd> 별점 지우기</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>6</kbd>–<kbd>9</kbd></span><span class="d">색 태그 빨강 · 노랑 · 초록 · 파랑 (다시 누르면 지움) · 폴더 방식은 브릿지 라벨(선택 · 재청 · 검토 완료 · 검토)로 파일에 저장</span></div>
+<div class="r"><span class="k"><kbd>⌫</kbd></span><span class="d">캡쳐원 세션: 선택 불가 표시 (픽 안에서만, 우클릭으로 해제) · 폴더: 휴지통으로</span></div>
+<div class="r"><span class="k">Map에서 끌어 다른 줄에</span><span class="d">그 줄 별점으로 (여러 장도)</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>1</kbd>–<kbd>5</kbd></span><span class="d">Bridge 별점 필터 켜고 끄기 (탭 클릭: 그 탭만 · <kbd>⇧</kbd>클릭: 여러 개)</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>Z</kbd> · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Z</kbd></span><span class="d">취소 · 다시 (별점 · 태그 · 선택 불가)</span></div>
+
+<h4>크게 보기</h4>
+<div class="r"><span class="k"><kbd>스페이스</kbd></span><span class="d">크게 보기 열기 · 닫기 (여러 장이면 <kbd>←</kbd><kbd>→</kbd>로 돌기)</span></div>
+<div class="r"><span class="k">Bridge 전체화면에서 <kbd>1</kbd>–<kbd>5</kbd> · <kbd>0</kbd></span><span class="d">보고 있는 사진 별점 · 지우기 (브릿지 전체화면과 같음)</span></div>
+<div class="r"><span class="k">Bridge 전체화면에서 <kbd>6</kbd>–<kbd>9</kbd></span><span class="d">색 태그 빨강 · 노랑 · 초록 · 파랑 (다시 누르면 지움) · 사진 아래에 이름 · 별점 · 색 라벨 표시</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>+</kbd> <kbd>⌘</kbd><kbd>−</kbd></span><span class="d">확대 · 축소 · <kbd>⌘</kbd><kbd>⌥</kbd><kbd>0</kbd> 처음 크기</span></div>
+<div class="r"><span class="k">더블클릭</span><span class="d">맞춤 ↔ 100%</span></div>
+<div class="r"><span class="k"><kbd>Z</kbd> + 끌기 · 휠 · 핀치</span><span class="d">커서 기준 확대 · 축소 (확대 뒤 끌어서 이동)</span></div>
+
+<h4>Map</h4>
+<div class="r"><span class="k">두 손가락 · <kbd>스페이스</kbd> + 끌기</span><span class="d">지도 이동</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>−</kbd> <kbd>⌘</kbd><kbd>+</kbd></span><span class="d">사진 크기 Small · Default · Large (Export 아래 버튼으로도, 껐다 켜도 그대로)</span></div>
+<div class="r"><span class="k">Bridge <kbd>Z</kbd> + 끌기</span><span class="d">스트립 위: 썸네일 크기 · 미리보기 위: 사진 확대</span></div>
+
+<h4>내보내기</h4>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>S</kbd></span><span class="d">고른 사진 내보내기</span></div>
+<div class="r"><span class="k">창 밖으로 끌기</span><span class="d">데스크톱 · 폴더 · 포토샵에 보정본으로 (놓는 순간 만듦)</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>C</kbd> · <kbd>⌘</kbd><kbd>V</kbd></span><span class="d">복사 · 데스크톱에 붙여넣기</span></div>
+<div class="r"><span class="k"><kbd>F3</kbd></span><span class="d">변형 복제 (캡쳐원)</span></div>
+
+<h4>폴더 방식 (브릿지처럼 파일을 직접)</h4>
+<div class="r"><span class="k">우클릭</span><span class="d">사진: Finder에서 보기 · 복사 · 이름 바꾸기 · 휴지통 / 폴더: 열기 · 이름 바꾸기 · 즐겨찾기 · 휴지통 / 빈 곳: 새 폴더 · 붙여넣기</span></div>
+<div class="r"><span class="k"><kbd>⌘</kbd><kbd>C</kbd> · <kbd>⌘</kbd><kbd>V</kbd></span><span class="d">복사 · 다른 폴더에 붙여넣기 (파일 복사)</span></div>
+<div class="r"><span class="k">왼쪽 패널 · 폴더 칸에 끌어 놓기</span><span class="d">그 폴더로 이동 (다른 디스크면 복사 · <kbd>⌥</kbd> 누르고 놓으면 복사) · <kbd>⌘</kbd><kbd>Z</kbd> 되돌리기</span></div>
+<div class="r"><span class="k">보정 표시 <span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:#555;vertical-align:-2px"></span></span><span class="d">카메라 로우(브릿지·포토샵)로 보정한 RAW: 노출 · 화이트밸런스 · 대비 · 섀도 · 채도 · 흑백 · 자르기 · 회전을 비슷하게 반영한 모습 (정확한 보정 결과는 어도비 앱에서)</span></div>
+<div class="r"><span class="k">보이는 파일</span><span class="d">RAW · JPG · PNG · TIFF · HEIC · DNG · PSD (.xmp 같은 보조 파일은 숨김)</span></div>
+<div class="r"><span class="k"><kbd>⌫</kbd> · <kbd>⌘</kbd><kbd>⌫</kbd></span><span class="d">휴지통으로 (⌘Z로 되돌리기)</span></div>
+
+<h4>세션</h4>
+<div class="r"><span class="k">켜면</span><span class="d">데스크톱 폴더로 시작 · 캡쳐원 스크립트 메뉴 → Pick 으로 켜면 열린 세션으로</span></div>
+<div class="r"><span class="k">왼쪽 패널</span><span class="d">세션 두 번 클릭: 캡쳐원에서 열기 · 폴더 클릭: 폴더 보기 · ▶: 펼치기</span></div>
+<div class="r"><span class="k">디스크</span><span class="d">외장하드 · SSD · SD카드를 꽂으면 바로 나타남 · 줄에 마우스 올리고 ⏏: 추출</span></div>
+<div class="r"><span class="k"><kbd>＋</kbd> · <kbd>⌘</kbd><kbd>N</kbd></span><span class="d">새 세션 만들기</span></div>
+<div class="r"><span class="k">세션 우클릭</span><span class="d">캡쳐원에서 열기 · Finder에서 보기 · 세션 비우기 · 세션 지우기 (지운 것은 Mac 휴지통에)</span></div>
+<div class="r"><span class="k"><kbd>?</kbd></span><span class="d">이 도움말 열기 · 닫기</span></div>
+
+<div class="ft">캡쳐원 세션: 별점·태그는 캡쳐원에 바로 저장 · 캡쳐원에서 바꾼 것도 픽에 바로 반영<br>폴더 방식: 별점·색 라벨은 브릿지처럼 파일에 저장 (RAW는 옆 .xmp, 그 외는 파일 안) → 브릿지·라이트룸에서도 보임</div>
+<script>addEventListener("keydown",e=>{ if(e.key==="Escape"||e.key==="?") window.webkit.messageHandlers.pick.postMessage({cmd:"help",on:false}) });document.addEventListener("contextmenu",e=>e.preventDefault())</script>
+</body></html>

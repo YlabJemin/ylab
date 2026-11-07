@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>④ 좌우 글씨체 5가지</title>
+<style>body{background:#2a2a2a;color:#ddd;font-family:-apple-system,sans-serif;padding:24px}
+.row{margin:0 0 22px}.lab{font-size:15px;margin-bottom:8px}.box{width:992px;height:232px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 3px #555}
+.small{width:248px;height:58px;border-radius:6px;overflow:hidden;margin-top:8px;box-shadow:0 0 0 2px #555}</style>
+<h2>④ PORTRA — 좌우 글씨체 5가지 (숫자 퓨추라 + 초 프레임 안)</h2><p>위: 4배 / 아래: 실제 크기</p>
+<div id="list"></div>
+<script>document.write(`<script src="vintage.js?v=${Date.now()}"><\/script>`)</script>
+<script>
+const SET = [['1. Academy Engraved LET', 'Academy Engraved LET', 400, 0.85], ['46. Chalkduster', 'Chalkduster', 400, 0.78], ['52. Courier New', 'Courier New', 700, 0.92], ['104. Kokonor', 'Kokonor', 400, 0.95], ['174. Songti SC', 'Songti SC', 700, 0.9]];
+const list = document.getElementById('list');
+SET.forEach((x, i) => list.insertAdjacentHTML('beforeend', `<div class="row"><div class="lab">${x[0]}</div><div class="box" id="b_${i}"></div><div class="small" id="s_${i}"></div></div>`));
+function draw(){ const now = new Date();
+  SET.forEach((x, i) => { SIDE_FONT.v = x[1]; SIDE_FONT.w = x[2]; SIDE_FONT.scale = x[3];
+    const s = vintage('futura', now, now.getTime(), 'portra');
+    const uniq = (str, p) => str.replace(/id='(\w+)'/g, `id='${p}$1'`).replace(/url\(#(\w+)\)/g, `url(#${p}$1)`);
+    document.getElementById('b_'+i).innerHTML = uniq(s, 'b'+i).replace(`width='248' height='58'`, `width='992' height='232'`);
+    document.getElementById('s_'+i).innerHTML = uniq(s, 's'+i); });
+  requestAnimationFrame(draw); }
+draw();
+</script>

@@ -1,0 +1,23 @@
+// 앱 토글: 누를 때마다 대상 앱을  맨 앞에 있으면 → 숨김 / 숨겨졌거나 뒤에 있으면 → 앞으로 / 꺼져 있으면 → 켬
+// 대상은 이 앱 Info.plist 의 CCToggleBundleID (앱마다 껍데기 .app을 따로 만들어 씀, build.sh)
+// Stream Deck '앱 열기'로 이 껍데기 앱을 지정. 화면 맨 앞 앱을 빼앗지 않도록 LSBackgroundOnly
+// --dry : 실제로 하지 않고 무엇을 할지만 출력 (시험용)
+import Cocoa
+let dry = CommandLine.arguments.contains("--dry")
+guard let bid = Bundle.main.object(forInfoDictionaryKey: "CCToggleBundleID") as? String
+        ?? CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) else { exit(1) }
+let running = NSRunningApplication.runningApplications(withBundleIdentifier: bid).first
+let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+if let app = running {
+    if front == bid && !app.isHidden {
+        if dry { print("숨김:", bid) } else { app.hide() }
+    } else {
+        if dry { print("앞으로:", bid, "(지금 맨 앞:", front ?? "-", ")") } else { app.unhide(); app.activate(options: [.activateAllWindows]) }
+    }
+} else if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) {
+    if dry { print("켜기:", url.path) } else {
+        let sem = DispatchSemaphore(value: 0)
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in sem.signal() }
+        _ = sem.wait(timeout: .now() + 10)
+    }
+}

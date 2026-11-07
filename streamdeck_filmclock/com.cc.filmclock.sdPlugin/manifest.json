@@ -1,0 +1,25 @@
+{
+  "Actions": [
+    {
+      "Icon": "Images/icon",
+      "Name": "필름 시계",
+      "States": [{ "Image": "Images/infobar" }],
+      "Tooltip": "흑백 빈티지 필름이 흐르며 타들어가는 시계 (Neo Infobar)",
+      "UUID": "com.cc.filmclock.infobar",
+      "Controllers": ["Neo"]
+    }
+  ],
+  "Author": "cc",
+  "Category": "cc",
+  "CategoryIcon": "Images/icon",
+  "CodePath": "plugin.js",
+  "Description": "Stream Deck Neo Infobar용 빈티지 필름 시계",
+  "Icon": "Images/icon",
+  "Name": "필름 시계",
+  "Nodejs": { "Version": "20", "Debug": "disabled" },
+  "OS": [{ "Platform": "mac", "MinimumVersion": "12" }],
+  "SDKVersion": 2,
+  "Software": { "MinimumVersion": "6.4" },
+  "UUID": "com.cc.filmclock",
+  "Version": "1.0.0.0"
+}

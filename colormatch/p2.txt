@@ -1,0 +1,17 @@
+set contrast to -2
+set brightness to 0
+set saturation to 0
+set highlight recovery to 5
+set shadow recovery to 0
+set clarity method to natural
+set clarity amount to -8
+set clarity structure to 5
+set level target shadow rgb to 12
+set level target highlight rgb to 248
+set color balance shadow hue to 195
+set color balance shadow saturation to 0.4
+set color balance midtone hue to 350
+set color balance midtone saturation to 0.1
+set color balance highlight hue to 215
+set color balance highlight saturation to 0.1
+set level shadow rgb to 14

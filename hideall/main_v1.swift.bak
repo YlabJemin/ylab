@@ -1,0 +1,11 @@
+// 데스크톱(모두 숨기기): 화면에 보이는 앱을 전부 숨김 (⌘H를 앱마다 누른 것과 같음, 창은 닫히지 않음)
+// Stream Deck '앱 열기'로 이 앱을 지정해서 씀. 권한 필요 없음 (NSRunningApplication.hide)
+// --dry : 숨기지 않고 숨길 앱 목록만 출력 (시험용)
+import Cocoa
+let dry = CommandLine.arguments.contains("--dry")
+let me = ProcessInfo.processInfo.processIdentifier
+let skip: Set<String> = ["com.elgato.StreamDeck"]                     // Stream Deck 앱은 그대로
+for app in NSWorkspace.shared.runningApplications
+where app.activationPolicy == .regular && app.processIdentifier != me && !app.isHidden && !skip.contains(app.bundleIdentifier ?? "") {
+    if dry { print(app.localizedName ?? "?", app.bundleIdentifier ?? "") } else { app.hide() }
+}

@@ -1,0 +1,4 @@
+orange 0 -10 0
+yellow -5 -25 0
+red 0 22 0
+pink 0 12 0

@@ -1,0 +1,38 @@
+// 데스크톱(모두 숨기기): 화면에 보이는 앱을 전부 숨김 (⌘H를 앱마다 누른 것과 같음, 창은 닫히지 않음)
+// Stream Deck '앱 열기' 또는 펑 캐릭터 플러그인이 실행. 권한 필요 없음 (NSRunningApplication.hide)
+// 한 번에 안 숨는 앱이 있어서(특히 맨 앞 앱·바쁜 앱): 최대 1.5초 동안 다시 시도하고 결과를 기록
+// 기록: ~/Library/Logs/cc_데스크톱.log   / --dry : 숨길 앱 목록만 출력
+import Cocoa
+let dry = CommandLine.arguments.contains("--dry")
+let me = ProcessInfo.processInfo.processIdentifier
+let skip: Set<String> = ["com.elgato.StreamDeck"]                     // Stream Deck 앱은 그대로
+func targets() -> [NSRunningApplication] {
+    NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0.processIdentifier != me && !$0.isHidden && !skip.contains($0.bundleIdentifier ?? "") }
+}
+if dry { let t = targets().map { $0.localizedName ?? "?" }; print(t); try? "\(Date()) 시험(--dry) 대상 \(t)\n".appendLog(); exit(0) }
+let first = targets().map { $0.localizedName ?? "?" }
+// 맨 앞 앱은 숨기기를 거부할 때가 있어 → 먼저 Finder를 앞으로 가져온 뒤 숨김
+NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first?.activate()
+var tries = 0
+while tries < 15 {
+    let left = targets(); if left.isEmpty { break }
+    for a in left { a.hide() }
+    RunLoop.current.run(until: Date().addingTimeInterval(0.1)); tries += 1
+}
+// 그래도 남은 앱(라이트룸·이보토처럼 일반 숨기기 요청을 무시하는 앱): System Events 로 '보이지 않게' (⌘H 와 같은 효과)
+//   처음 한 번 "데스크톱이(가) System Events를 제어하려고 합니다" 허용 필요
+var aeErr = ""
+for a in targets() {
+    let src = "tell application \"System Events\" to set visible of (first process whose unix id is \(a.processIdentifier)) to false"
+    var err: NSDictionary?
+    NSAppleScript(source: src)?.executeAndReturnError(&err)
+    if let e = err { aeErr += " [\(a.localizedName ?? "?"): \(e[NSAppleScript.errorMessage] ?? e)]" }
+}
+RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+let left = targets().map { $0.localizedName ?? "?" }
+let line = "\(Date()) 대상 \(first) → 남음 \(left) (시도 \(tries))\(aeErr)\n"
+let logURL = URL(fileURLWithPath: NSHomeDirectory() + "/Library/Logs/cc_데스크톱.log")
+if let h = try? FileHandle(forWritingTo: logURL) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() } else { try? line.write(to: logURL, atomically: true, encoding: .utf8) }
+extension String { func appendLog() throws {
+    let u = URL(fileURLWithPath: NSHomeDirectory() + "/Library/Logs/cc_데스크톱.log")
+    if let h = try? FileHandle(forWritingTo: u) { h.seekToEndOfFile(); h.write(self.data(using: .utf8)!); h.closeFile() } else { try self.write(to: u, atomically: true, encoding: .utf8) } } }

@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden}#b{width:496px;height:116px}</style>
+<div id="b"></div>
+<script src="vintage.js"></script>
+<script>
+// 플러그인용 층 그림: draw(i, fps, layer) → 2배 크기(496×116). layer: bottom / top
+SIDE_FONT.v = 'Academy Engraved LET'; SIDE_FONT.w = 400; SIDE_FONT.scale = 0.85; SIDE_FONT.burn = true;
+function draw(i, fps, layer) {
+  LAYER.v = layer;
+  const ms = i * 1000 / fps;                                   // 0 ~ 16초 (반복 주기)
+  document.getElementById('b').innerHTML = vintage('futura', new Date(), ms, 'portra').replace(`width='248' height='58'`, `width='496' height='116'`);
+  document.body.offsetHeight; return 1;
+}
+</script>

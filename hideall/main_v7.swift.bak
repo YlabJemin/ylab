@@ -1,0 +1,38 @@
+// 데스크톱(모두 숨기기): 화면에 보이는 앱을 전부 숨김 (⌘H를 앱마다 누른 것과 같음, 창은 닫히지 않음)
+// 숨기기를 버티는 앱은 그대로 둠 (창 닫기 단계는 v7에서 뺌, 2026-10-04 사용자 요청)
+// Stream Deck '앱 열기' 또는 펑 캐릭터 플러그인이 실행. 권한 필요 없음 (NSRunningApplication.hide)
+// 한 번에 안 숨는 앱이 있어서(특히 맨 앞 앱·바쁜 앱): 최대 1.5초 동안 다시 시도하고 결과를 기록
+// 기록: ~/Library/Logs/cc_데스크톱.log   / --dry : 숨길 앱 목록만 출력
+import Cocoa
+let dry = CommandLine.arguments.contains("--dry")
+let me = ProcessInfo.processInfo.processIdentifier
+let skip: Set<String> = ["com.elgato.StreamDeck"]                     // Stream Deck 앱은 그대로
+func onscreenPIDs() -> Set<pid_t> {
+    let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+    return Set(l.filter { ($0["kCGWindowLayer"] as? Int ?? 1) == 0 && ($0["kCGWindowAlpha"] as? Double ?? 1) > 0 }.compactMap { ($0["kCGWindowOwnerPID"] as? Int).map { pid_t($0) } })
+}
+func targets() -> [NSRunningApplication] {
+    let vis = onscreenPIDs()
+    return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0.processIdentifier != me && !$0.isHidden && !skip.contains($0.bundleIdentifier ?? "") && vis.contains($0.processIdentifier) }   // 화면에 창이 있는 앱만
+}
+if dry { let t = targets().map { $0.localizedName ?? "?" }; print(t); try? "\(Date()) 시험(--dry) 대상 \(t)\n".appendLog(); exit(0) }
+let first = targets().map { $0.localizedName ?? "?" }
+// 앱마다 따로 숨기면 거부하는 앱(캡쳐원·라이트룸·이보토 등)이 있어서, macOS '다른 앱 가리기'(⌥⌘H)를 씀:
+//   이 앱을 잠깐 맨 앞으로 → 시스템이 나머지 앱 전부를 한 번에 가림 (앱 종류와 상관없이 됨)
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+app.activate(ignoringOtherApps: true)
+RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+app.hideOtherApplications(nil)
+RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+// 그래도 남은 앱만 한 번 더 (개별 숨기기 → System Events)
+var tries = 0
+while tries < 5 { let left = targets(); if left.isEmpty { break }; for a in left { a.hide() }; RunLoop.current.run(until: Date().addingTimeInterval(0.1)); tries += 1 }
+RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+let left = targets().map { $0.localizedName ?? "?" }
+let line = "\(Date()) 대상 \(first) → 남음 \(left) (시도 \(tries))\n"
+let logURL = URL(fileURLWithPath: NSHomeDirectory() + "/Library/Logs/cc_데스크톱.log")
+if let h = try? FileHandle(forWritingTo: logURL) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() } else { try? line.write(to: logURL, atomically: true, encoding: .utf8) }
+extension String { func appendLog() throws {
+    let u = URL(fileURLWithPath: NSHomeDirectory() + "/Library/Logs/cc_데스크톱.log")
+    if let h = try? FileHandle(forWritingTo: u) { h.seekToEndOfFile(); h.write(self.data(using: .utf8)!); h.closeFile() } else { try self.write(to: u, atomically: true, encoding: .utf8) } } }

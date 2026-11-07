@@ -1,0 +1,86 @@
+준비됨: 장치 2개 인식. 180초 동안 키를 눌러 보세요.
+키보드   0xE0  Left Ctrl
+키보드   0xE3  Left Win(Command)
+키보드   0xE2  Left Alt(Option)
+키보드   0x62  KP 0
+키보드   0x63  KP .
+키보드   0x58  KP Enter
+키보드   0x59  KP 1
+키보드   0x5A  KP 2
+키보드   0x5B  KP 3
+키보드   0x5C  KP 4
+키보드   0x5D  KP 5
+키보드   0x5E  KP 6
+키보드   0x5F  KP 7
+키보드   0x60  KP 8
+키보드   0x61  KP 9
+키보드   0xE1  Left Shift
+키보드   0x39  CapsLock
+키보드   0x2B  Tab
+키보드   0x35  `
+키보드   0x07  D
+키보드   0x2A  Backspace
+키보드   0x2C  Space
+키보드   0x2A  Backspace
+키보드   0xE6  Right Alt(Option)
+키보드   0xE7  Right Win(Command)
+키보드   0x65  Menu(Application)
+키보드   0x65  Menu(Application)
+키보드   0xE4  Right Ctrl
+키보드   0xE0  Left Ctrl
+키보드   0xE6  Right Alt(Option)
+키보드   0xE2  Left Alt(Option)
+키보드   0x29  Esc
+키보드   0xE3  Left Win(Command)
+키보드   0xE7  Right Win(Command)
+키보드   0x65  Menu(Application)
+키보드   0x65  Menu(Application)
+키보드   0x3A  F1
+키보드   0x3B  F2
+키보드   0x3C  F3
+키보드   0x3C  F3
+키보드   0x3D  F4
+키보드   0x3E  F5
+키보드   0x3F  F6
+키보드   0x40  F7
+키보드   0x41  F8
+키보드   0x42  F9
+키보드   0x43  F10
+키보드   0x44  F11
+키보드   0x44  F11
+키보드   0x45  F12
+키보드   0x46  PrintScreen
+키보드   0x47  ScrollLock
+키보드   0x48  Pause
+키보드   0x47  ScrollLock
+키보드   0x48  Pause
+키보드   0x48  Pause
+키보드   0x48  Pause
+키보드   0x48  Pause
+키보드   0x49  Insert
+키보드   0x4A  Home
+키보드   0x4A  Home
+키보드   0x4D  End
+키보드   0x4B  PageUp
+키보드   0x4E  PageDown
+키보드   0x4C  Delete
+키보드   0x4D  End
+키보드   0xE1  Left Shift
+키보드   0x15  R
+키보드   0x36  ,
+키보드   0x1B  X
+키보드   0x2A  Backspace
+키보드   0x2A  Backspace
+키보드   0x2A  Backspace
+키보드   0xE1  Left Shift
+키보드   0x15  R
+키보드   0x10  M
+키보드   0x1B  X
+키보드   0x16  S
+키보드   0x0E  K
+키보드   0xE1  Left Shift
+키보드   0x17  T
+키보드   0x07  D
+키보드   0x0D  J
+키보드   0x28  Enter
+키보드   0xE2  Left Alt(Option)

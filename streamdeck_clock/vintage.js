@@ -1,0 +1,241 @@
+// 빈티지 필름 시계 (Infobar 248×58) — 날짜 스탬프(주황 빛번짐) 스타일, 시간 글씨만 다른 4가지
+//   주황 갈색 네거티브 필름 + 지글거리는 입자 + 가끔 스크래치·먼지 + 가장자리 빛샘 + 살짝 깜빡임
+//   가장자리 글씨: DIN Condensed (옛 코닥 필름 가장자리 인쇄 느낌)
+'use strict';
+const VW = 248, VH = 58;
+const VDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const v2 = (n) => String(n).padStart(2, '0');
+const EDGE = "font-family='DIN Condensed, Futura, Helvetica Neue, sans-serif' font-weight='700'";
+const FONTS = {
+  din:    { label: 'D1. 지금 글씨체 (DIN Condensed)',       kind: 'text', fam: "'DIN Condensed', 'Futura', sans-serif", w: 700, size: 30 },
+  seg:    { label: 'D2. 7세그먼트 (필름 카메라 날짜 스탬프 숫자)', kind: 'seg' },
+  dot:    { label: 'D3. 도트 (점으로 찍힌 숫자)',            kind: 'dot' },
+  futura: { label: 'D4. 퓨추라 컨덴스드 (70년대 포스터)',     kind: 'text', fam: "'Futura', 'DIN Condensed', sans-serif", w: 800, size: 28, stretch: 'condensed' },
+};
+const STAMP = '#ffb070', STAMP_GLOW = '#ff6a1a';   // 글씨는 밝은 주황(형광 심), 번짐은 진한 주황
+// 7세그먼트: 글자당 a~g 켜짐
+const SEG = { '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg', '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg' };
+function segText(str, cx, base, h, fill) {
+  const w = h * 0.52, t = h * 0.13, sk = h * 0.1, gap = h * 0.16;      // 글자 폭·획 두께·기울기
+  const colW = h * 0.22, total = [...str].reduce((acc, ch) => acc + (ch === ':' ? colW : w) + gap, -gap);
+  let x = cx - total / 2, out = '';
+  const P = (pts, ox, oy) => `<polygon points='${pts.map(([px, py]) => `${(ox + px + sk * (1 - (py) / h)).toFixed(2)},${(oy + py).toFixed(2)}`).join(' ')}' fill='${fill}'/>`;
+  for (const ch of str) {
+    const top = base - h;
+    if (ch === ':') { out += `<rect x='${(x + colW / 2 - t / 2 + sk * 0.6).toFixed(2)}' y='${(top + h * 0.28).toFixed(2)}' width='${t}' height='${t}' fill='${fill}'/><rect x='${(x + colW / 2 - t / 2 + sk * 0.3).toFixed(2)}' y='${(top + h * 0.66).toFixed(2)}' width='${t}' height='${t}' fill='${fill}'/>`; x += colW + gap; continue; }
+    const on = SEG[ch] || '', m = h / 2, i = t * 0.15;
+    const H = (y) => [[i + t / 2, y], [i + t, y - t / 2], [w - i - t, y - t / 2], [w - i - t / 2, y], [w - i - t, y + t / 2], [i + t, y + t / 2]];
+    const V = (xx, y0, y1) => [[xx, y0 + i + t / 2], [xx + t / 2, y0 + i + t], [xx + t / 2, y1 - i - t], [xx, y1 - i - t / 2], [xx - t / 2, y1 - i - t], [xx - t / 2, y0 + i + t]];
+    const segs = { a: H(t / 2), g: H(m), d: H(h - t / 2), f: V(t / 2, 0, m), e: V(t / 2, m, h), b: V(w - t / 2, 0, m), c: V(w - t / 2, m, h) };
+    for (const k of 'abcdefg') out += P(segs[k], x, top).replace(`fill='${fill}'`, `fill='${fill}' opacity='${on.includes(k) ? 1 : 0.07}'`);
+    x += w + gap;
+  }
+  return out;
+}
+// 도트 5×7 글꼴
+const DOT = { '0': ['01110','10001','10011','10101','11001','10001','01110'], '1': ['00100','01100','00100','00100','00100','00100','01110'],
+  '2': ['01110','10001','00001','00010','00100','01000','11111'], '3': ['11111','00010','00100','00010','00001','10001','01110'],
+  '4': ['00010','00110','01010','10010','11111','00010','00010'], '5': ['11111','10000','11110','00001','00001','10001','01110'],
+  '6': ['00110','01000','10000','11110','10001','10001','01110'], '7': ['11111','00001','00010','00100','01000','01000','01000'],
+  '8': ['01110','10001','10001','01110','10001','10001','01110'], '9': ['01110','10001','10001','01111','00001','00010','01100'],
+  ':': ['0','0','1','0','1','0','0'] };
+function dotText(str, cx, base, h, fill) {
+  const p = h / 7, r = p * 0.36, gap = p * 1.2;
+  const total = [...str].reduce((acc, ch) => acc + DOT[ch][0].length * p + gap, -gap);
+  let x = cx - total / 2, out = '';
+  for (const ch of str) { const g = DOT[ch];
+    g.forEach((row, ry) => [...row].forEach((v, rx) => { out += `<circle cx='${(x + rx * p + p / 2).toFixed(2)}' cy='${(base - h + ry * p + p / 2).toFixed(2)}' r='${r.toFixed(2)}' fill='${fill}' opacity='${v === '1' ? 1 : 0.06}'/>`; }));
+    x += row0w(g) * p + gap; }
+  return out;
+}
+const row0w = (g) => g[0].length;
+const SHOW_SEC = { v: null };   // 초 표시 (vintage() 에서 채움)
+function timeArt(F, time, glow) {
+  const fill = glow ? STAMP_GLOW : STAMP;
+  if (F.kind === 'seg') return segText(time, 124, 41, 24, fill);
+  if (F.kind === 'dot') return dotText(time, 124, 40, 22, fill);
+  // 시:분 크게 + 초는 같은 프레임 안에 작게 (secs 가 있으면)
+  const sec = SHOW_SEC.v != null ? `<tspan font-size='${F.size * 0.42}' dx='2'>${SHOW_SEC.v}</tspan>` : '';
+  const fsz = SHOW_SEC.v != null ? F.size * 0.8 : F.size;                // 초가 붙으면 프레임 안에 들어가게 조금 작게
+  return `<text x='124' y='${SHOW_SEC.v != null ? 38.5 : 40}' font-family="${F.fam}" font-weight='${F.w}' font-size='${fsz}' ${F.stretch ? `font-stretch='${F.stretch}'` : ''} fill='${fill}' text-anchor='middle' letter-spacing='${SHOW_SEC.v != null ? 0.6 : 1.5}'>${time}${sec}</text>`;
+}
+// 빈티지 에디슨 전구 (실제처럼): 위에서 전선 → 황동 나사 소켓 → 물방울(ST64) 유리, 안에 유리 지지대·철사·쳇바퀴 필라멘트
+//   필라멘트는 가운데 흰빛·바깥 주황으로 빛나고, 유리 안이 따뜻하게 차오르며 필름 위로 빛이 번짐. 아주 살짝 일렁임
+let BULB_MS = 0;
+function bulb(cx, d) {
+  const t = BULB_MS / 1000;
+  const fl = 0.9 + 0.05 * Math.sin(t * 6.1) + 0.04 * Math.sin(t * 11.7 + 1.3) + 0.02 * Math.sin(t * 23.3);
+  const sTop = 5, sBot = 17, neck = 19, bellY = 39, tip = 55;               // 소켓 위·아래, 목, 가장 넓은 곳, 아래 끝
+  const glass = `M ${cx - 4.6} ${neck} C ${cx - 5} ${neck + 6}, ${cx - 13.5} ${bellY - 9}, ${cx - 13.5} ${bellY} C ${cx - 13.5} ${bellY + 9}, ${cx - 6} ${tip - 2}, ${cx} ${tip} C ${cx + 6} ${tip - 2}, ${cx + 13.5} ${bellY + 9}, ${cx + 13.5} ${bellY} C ${cx + 13.5} ${bellY - 9}, ${cx + 5} ${neck + 6}, ${cx + 4.6} ${neck} Z`;
+  // 쳇바퀴 필라멘트: 위 고리(y 33) ↔ 아래 고리(y 45) 사이 세로 고리 5개 (원통을 비스듬히 본 모양)
+  const fy0 = 33, fy1 = 45, fr = 6;
+  let fil = '';
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.4, x0 = cx + Math.cos(a) * fr, ox = Math.sin(a) * 1.6;
+    fil += `M ${x0.toFixed(2)} ${(fy0 + ox).toFixed(2)} C ${(x0 - 1.6).toFixed(2)} ${(fy0 + 4).toFixed(2)}, ${(x0 + 1.6).toFixed(2)} ${(fy1 - 4).toFixed(2)}, ${x0.toFixed(2)} ${(fy1 + ox * 0.6).toFixed(2)} `;
+  }
+  fil += `M ${cx - fr} ${fy0} A ${fr} 1.6 0 0 1 ${cx + fr} ${fy0} M ${cx - fr} ${fy1} A ${fr} 1.4 0 0 0 ${cx + fr} ${fy1}`;
+  let threads = '';
+  for (let i = 0; i < 5; i++) { const y = sTop + 3.2 + i * 2.2; threads += `<path d='M ${cx - 6.2} ${y + 0.9} L ${cx + 6.2} ${y - 0.4}' stroke='#4a3010' stroke-width='0.9' opacity='0.75'/><path d='M ${cx - 6.2} ${y + 1.8} L ${cx + 6.2} ${y + 0.5}' stroke='#f3d79a' stroke-width='0.4' opacity='0.5'/>`; }
+  return `<g>
+    <circle cx='${cx}' cy='${bellY}' r='34' fill='url(#bulbAmbient)' opacity='${(0.85 * fl).toFixed(3)}'/>
+    <path d='M ${cx} 0 C ${cx + 1.2} 1.5, ${cx - 1.2} 3, ${cx} ${sTop - 2}' stroke='#151008' stroke-width='1.6' fill='none'/>
+    <rect x='${cx - 3.4}' y='${sTop - 2.4}' width='6.8' height='3' rx='0.8' fill='#141414'/>
+    <rect x='${cx - 6.2}' y='${sTop}' width='12.4' height='${sBot - sTop}' rx='1.2' fill='url(#brass)'/>${threads}
+    <rect x='${cx - 5}' y='${sBot - 0.6}' width='10' height='2.6' rx='1' fill='#1a1a1a'/>
+    <path d='${glass}' fill='url(#glassFill)' opacity='${(0.55 + 0.45 * fl).toFixed(3)}'/>
+    <path d='M ${cx - 1.6} ${neck + 1} L ${cx - 1.2} ${fy0 - 4} M ${cx + 1.6} ${neck + 1} L ${cx + 1.2} ${fy0 - 4}' stroke='#e8dcc4' stroke-opacity='0.35' stroke-width='1.6' stroke-linecap='round'/>
+    <path d='M ${cx - 1.2} ${fy0 - 4} L ${cx - fr} ${fy0} M ${cx + 1.2} ${fy0 - 4} L ${cx + fr} ${fy0} M ${cx} ${fy0 - 4} L ${cx} ${fy1}' stroke='#8a7a66' stroke-opacity='0.55' stroke-width='0.45'/>
+    <path d='${fil}' fill='none' stroke='#ff6a14' stroke-width='3.4' stroke-linecap='round' filter='url(#glow2)' opacity='${fl.toFixed(3)}'/>
+    <path d='${fil}' fill='none' stroke='#ffb24a' stroke-width='1.1' stroke-linecap='round' opacity='${(0.8 + 0.2 * fl).toFixed(3)}'/>
+    <path d='${fil}' fill='none' stroke='#fff3d6' stroke-width='0.45' stroke-linecap='round' opacity='${(0.75 * fl).toFixed(3)}'/>
+    <path d='${glass}' fill='none' stroke='#fff2dc' stroke-opacity='0.32' stroke-width='0.7'/>
+    <path d='M ${cx - 10.5} ${bellY - 6} C ${cx - 12} ${bellY}, ${cx - 10} ${bellY + 8}, ${cx - 6} ${tip - 5}' fill='none' stroke='#ffffff' stroke-opacity='0.38' stroke-width='1.3' stroke-linecap='round'/>
+    <path d='M ${cx - 7.5} ${neck + 9} C ${cx - 9.5} ${neck + 12}, ${cx - 10.5} ${neck + 15}, ${cx - 10.8} ${neck + 17}' fill='none' stroke='#ffffff' stroke-opacity='0.55' stroke-width='0.8' stroke-linecap='round'/>
+    <circle cx='${cx + 8}' cy='${bellY - 5}' r='0.9' fill='#ffffff' opacity='0.6'/>
+    <path d='M ${cx + 11} ${bellY + 3} C ${cx + 11} ${bellY + 8}, ${cx + 8} ${tip - 6}, ${cx + 5} ${tip - 3}' fill='none' stroke='#ffd9a8' stroke-opacity='0.35' stroke-width='0.8'/>
+  </g>`;
+}
+// 필름 타들어감 (실제처럼): 왼쪽부터  재(회색, 왼쪽으로 사라짐) | 불씨 줄(군데군데 빛남) | 검게 탄 띠 | 갈색 그을음 | 필름
+//   모든 경계 모양은 노이즈 변위 필터(burnDisp)로 불규칙하게 일그러뜨림. 필름은 마스크로 탄 띠 뒤에서 잘림
+const LOOP = 16;           // 모든 움직임이 16초마다 정확히 이어짐 (미리 그린 장면 반복용)
+const W1 = 2 * Math.PI / LOOP;
+const BURN_X = 15;         // 불 경계 (왼쪽 여백 2.5배)
+const GRAY_X = 30;         // 여기까지 흑백 (원래 경계 자리)
+const SCORCH_X = 32;       // 그을음 자리 (고정)
+function burnEdge(ms) {                                     // 큰 물결만 (잔 울퉁불퉁은 필터가 만듦), 아주 천천히 움직임
+  const t = (ms / 1000) % LOOP, pts = [];
+  for (let y = -6; y <= VH + 6; y += 2) pts.push([BURN_X + 3 * Math.sin(y * 0.09 + t * W1) + 1.6 * Math.sin(y * 0.23 - t * W1), y]);
+  return pts;
+}
+const edgeAt = (pts, dx) => pts.map(([x, y]) => `${(x + dx).toFixed(2)} ${y}`).join(' L ');
+function band(pts, dx0, dx1) {                               // 경계에서 dx0 ~ dx1 만큼 떨어진 띠 모양
+  const back = pts.slice().reverse();
+  return `M ${edgeAt(pts, dx0)} L ${edgeAt(back, dx1)} Z`;
+}
+function burnMaskPath(ms) { const p = burnEdge(ms); return band(p, 3, VW + 10); }   // 필름이 남는 곳: 탄 띠 오른쪽
+function burnFx(ms) {
+  const t = (ms / 1000) % LOOP, p = burnEdge(ms);
+  const line = 'M ' + edgeAt(p, 0);
+  const fl = 0.8 + 0.12 * Math.sin(t * 20 * W1) + 0.08 * Math.sin(t * 34 * W1 + 2);
+  const D = "filter='url(#burnDisp)'";
+  const scorch = `<rect x='${SCORCH_X - 10}' y='-4' width='40' height='${VH + 8}' fill='url(#scorch)' ${D}/>`;   // 갈색 그을음 (자리 고정)
+  const charB = `<path d='${band(p, -1, 6)}' fill='#0d0704' opacity='0.95' filter='url(#burnSoft)'/>`;   // 검게 탄 띠 (진하게, 부드럽게)
+  // 불씨 줄: 군데군데 끊겨 빛나는 조각들이 천천히 흘러내리며 깜빡
+  const dashOff = (t * 5) % 40;                                   // 16초에 80 = 무늬 길이 40의 두 배
+  const ember = `<path d='${line}' fill='none' stroke='#ff4a08' stroke-width='4.6' stroke-dasharray='9 4 3 6 13 5' stroke-dashoffset='${dashOff.toFixed(1)}' filter='url(#emberGlow)' opacity='${fl.toFixed(2)}'/>` +
+                `<path d='${line}' fill='none' stroke='#ffc060' stroke-width='1.5' stroke-dasharray='6 7 2 9 10 6' stroke-dashoffset='${dashOff.toFixed(1)}' ${D} opacity='${Math.min(1, 0.9 + 0.2 * fl).toFixed(2)}'/>` +
+                `<path d='${line}' fill='none' stroke='#fff6dc' stroke-width='0.6' stroke-dasharray='3 11 2 24' stroke-dashoffset='${dashOff.toFixed(1)}' ${D} opacity='1'/>`;
+  // 그을음 얼룩: 경계 가까운 필름에 노이즈로 일그러진 얼룩이 생겨 번짐
+  let blots = '';
+  for (let k = 0; k < 2; k++) {
+    const life = ((t * 0.125 + k / 3) % 1), y = 12 + ((k * 19) % 34), x = BURN_X + 6 + life * -3 + k * 2;
+    const r = 1.5 + life * 3.5;
+    blots += `<ellipse cx='${x.toFixed(1)}' cy='${y}' rx='${(r * 1.3).toFixed(2)}' ry='${r.toFixed(2)}' fill='url(#blot)' opacity='${(0.75 * Math.sin(Math.PI * life)).toFixed(2)}' ${D}/>`;
+  }
+  // 불티 (적게, 작게) + 연기
+  let sparks = '';
+  for (let k = 0; k < 4; k++) {
+    const life = ((t * [0.625, 0.8125, 1][k % 3] + k * 0.41) % 1), y0 = 8 + rnd(k * 7.3) * 42;
+    const x = BURN_X - 1 - life * (3 + rnd(k) * 4), y = y0 - life * (10 + rnd(k * 3) * 10);
+    sparks += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${(0.6 - life * 0.3).toFixed(2)}' fill='${life < 0.3 ? '#ffe9a8' : '#ff8a2a'}' opacity='${(0.9 * (1 - life)).toFixed(2)}'/>`;
+  }
+  let smoke = '';
+  for (let k = 0; k < 3; k++) {
+    const life = ((t * 0.25 + k / 3) % 1), x = BURN_X + 2 - life * 6 + Math.sin(t * 2 * W1 + k) * 2, y = 46 - life * 46;
+    smoke += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${(4 + life * 8).toFixed(1)}' fill='#7a716a' opacity='${(0.16 * Math.sin(Math.PI * life)).toFixed(3)}' filter='url(#glow2)'/>`;
+  }
+  return { onFilm: scorch + blots, over: charB + ember + sparks + smoke };
+}
+// 좌우 글씨 (숫자 창 양옆). 각 함수: d → SVG 조각
+const EDGEC = '#f2b25a';
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const KDAY = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+const FUT = "font-family='Futura, sans-serif'";
+const L = (y, size, txt, extra = '') => `<text x='9' y='${y}' ${extra || EDGE} font-size='${size}' fill='${EDGEC}'>${txt}</text>`;
+const R = (y, size, txt, extra = '') => `<text x='${VW - 9}' y='${y}' ${extra || EDGE} font-size='${size}' fill='${EDGEC}' text-anchor='end'>${txt}</text>`;
+const SIDE_FONT = { v: null, w: 400, scale: 1, bulb: false, burn: false };   // burn: 왼쪽에서 필름이 타들어감   // bulb: 왼쪽 글씨 대신 빈티지 전구   // ④ 좌우 글씨체 (null 이면 DIN Condensed)
+const SIDES = {
+  kodak:   (d) => L(27, 9, 'KODAK 400') + L(38, 8, 'SAFETY FILM') + R(27, 9, `${VDAYS[d.getDay()]} ${d.getMonth() + 1}.${v2(d.getDate())}`) + R(38, 8, `${v2(d.getSeconds())}S`),
+  gold:    (d) => L(25, 8.5, 'KODAK GOLD') + L(36, 8.5, '200 · 24 EXP') + R(26, 13, `${MONTHS[d.getMonth()]} ${v2(d.getDate())}`, FUT + " font-weight='700'") + R(38, 8, VDAYS[d.getDay()]),
+  korean:  (d) => L(27, 9.5, '오늘의 필름', "font-family='Apple SD Gothic Neo' font-weight='700'") + L(39, 8, `${d.getFullYear()}`) + R(27, 10, KDAY[d.getDay()], "font-family='Apple SD Gothic Neo' font-weight='700'") + R(39, 8.5, `${d.getMonth() + 1}월 ${d.getDate()}일`, "font-family='Apple SD Gothic Neo' font-weight='600'"),
+  stamp:   (d) => `<text x='9' y='34' ${FUT} font-weight='800' font-size='14' fill='#ff8a3c'>'${String(d.getFullYear()).slice(2)}</text>` + L(43, 6.5, 'DATE BACK') + `<text x='${VW - 9}' y='31' ${FUT} font-weight='800' font-size='12' fill='#ff8a3c' text-anchor='end'>${d.getMonth() + 1} ${v2(d.getDate())}</text>` + R(42, 7.5, `${VDAYS[d.getDay()]} · ${v2(d.getSeconds())}`),
+  portra:  (d) => { const ff = SIDE_FONT.v ? `font-family="'${SIDE_FONT.v}', sans-serif" font-weight='${SIDE_FONT.w || 400}'` : '';
+                     const k = SIDE_FONT.scale || 1;
+                     const left = SIDE_FONT.burn ? '' : SIDE_FONT.bulb ? bulb(40, d) : L(25, 9 * k, 'PORTRA 400', ff) + L(36, 7.5 * k, `☼ FRAME ${(d.getMinutes() % 36) + 1}`, ff);
+                     return left + R(25, 9 * k, `${VDAYS[d.getDay()]}`, ff) + R(36, 9 * k, `${MONTHS[d.getMonth()]} ${v2(d.getDate())}`, ff); },
+};
+const SIDE_LABEL = { kodak: '지금 (KODAK 400 / SAT 10.03 / 초)', gold: '① KODAK GOLD 200 · 24 EXP / OCT 03 · SAT', korean: '② 한글: 오늘의 필름 · 2026 / 토요일 · 10월 3일', stamp: "③ 날짜 스탬프식: '26 · DATE BACK / 10 03 · SAT · 초", portra: '④ PORTRA 400 · ☼ FRAME 번호 / SAT · OCT 03' };
+// 결정적 난수 (같은 프레임이면 같은 값)
+const rnd = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+
+// 층 나눠 그리기 (Stream Deck 플러그인용): 'all' 전부 / 'bottom' 글씨·입자 아래 필름(타들어감 포함) / 'top' 입자·흠집·빛샘·깜빡임만(투명 배경)
+const LAYER = { v: 'all' };
+function vintage(fontKey, d, ms, sideKey = 'kodak') {
+  BULB_MS = ms;
+  const BURN = sideKey === 'portra' && SIDE_FONT.burn, BFX = BURN ? burnFx(ms) : null;
+  const F = FONTS[fontKey];
+  const speed = 196 / LOOP, off = ((ms / 1000) % LOOP) * speed;   // 16초에 필름 칸 2개(98×2)만큼
+
+  let holes = '', frames = '';
+  for (let x = -14 + 4 - off % 14; x < VW + 14; x += 14) holes += `<rect x='${x.toFixed(1)}' y='4.5' width='7' height='5' rx='1.4' fill='#120a05'/><rect x='${x.toFixed(1)}' y='48.5' width='7' height='5' rx='1.4' fill='#120a05'/>`;
+  for (let x = -98 - off % 98; x < VW + 98; x += 98) frames += `<rect x='${(x + 2).toFixed(1)}' y='12' width='94' height='34' rx='2' fill='#2b1608' opacity='0.55'/>`;
+  // 가장자리 인쇄: 흘러가는 숫자 (필름 번호)
+  let edge = '';
+  for (let k = -1; k < 4; k++) {
+    const x = k * 98 - off % 98 + 30, num = 18;   // 칸마다 같은 번호 (반복 때 튀지 않게)
+    edge += `<text x='${x.toFixed(1)}' y='3.6' ${EDGE} font-size='4.2' fill='#f2b25a' opacity='0.9'>${num}  ▶  ${num}A</text>`;
+  }
+  // 스크래치(가끔), 먼지
+  let scratches = '';
+  const T = (ms / 1000) % LOOP;
+  // 흠집: 각자 수명 동안 부드럽게 나타났다 사라지고, 필름과 함께 흘러감 (뚝뚝 끊기지 않게)
+  for (let k = 0; k < 3; k++) { const rate = [0.5, 0.625, 0.75][k], n = rate * LOOP, idx = Math.floor(T * rate + k * 0.31) % n, life = (T * rate + k * 0.31) % 1, on = Math.max(0, Math.sin(Math.PI * life)) ** 2 * (rnd(idx * 3 + k) > 0.45 ? 1 : 0);
+    if (on < 0.01) continue; const x = ((rnd(k * 9.1 + idx) * (VW + 40) - off) % (VW + 40) + VW + 40) % (VW + 40) - 20;
+    scratches += `<rect x='${x.toFixed(2)}' y='0' width='${(0.5 + rnd(k) * 0.5).toFixed(2)}' height='${VH}' fill='#fff2d8' opacity='${(0.28 * on).toFixed(3)}'/>`; }
+  // 먼지: 필름에 붙어 함께 흘러가며 천천히 나타났다 사라짐
+  for (let k = 0; k < 6; k++) { const di = Math.floor(T * 0.25 + k / 6) % 4, life = (T * 0.25 + k / 6) % 1, x = ((rnd(k * 13.7 + di) * (VW + 20) - off) % (VW + 20) + VW + 20) % (VW + 20) - 10, y = rnd(k * 17.3 + di) * VH;
+    scratches += `<circle cx='${x.toFixed(2)}' cy='${y.toFixed(2)}' r='${(0.45 + rnd(k * 7) * 0.8).toFixed(2)}' fill='${k % 2 ? '#1a0e06' : '#fbe9c8'}' opacity='${(0.55 * Math.sin(Math.PI * life)).toFixed(3)}'/>`; }
+  const flick = 0.016 * Math.sin(T * 8 * W1) + 0.012 * Math.sin(T * 19 * W1 + 1) + 0.006 * Math.sin(T * 35 * W1);   // 밝기 일렁임 (부드럽게)
+  const time = `${v2(d.getHours())}:${v2(d.getMinutes())}`;
+  SHOW_SEC.v = sideKey === 'portra' ? v2(d.getSeconds()) : null;          // ④는 초를 가운데 프레임 안에
+  const glow = `<g filter='url(#neonWide)' opacity='0.9'>${timeArt(F, time, true)}</g><g filter='url(#blur)' opacity='0.95'>${timeArt(F, time, true)}</g>`;   // 형광처럼 넓게 + 가깝게 번짐
+  const GRAIN = `<g transform='translate(${(-(off % 98)).toFixed(2)} 0)'><rect width='${VW + 98}' height='${VH}' filter='url(#grain)' opacity='${(0.17 * (0.5 + 0.5 * Math.sin(T * 6 * W1))).toFixed(3)}'/><rect width='${VW + 98}' height='${VH}' filter='url(#grain2)' opacity='${(0.17 * (0.5 - 0.5 * Math.sin(T * 6 * W1))).toFixed(3)}'/></g>`;
+  const TEXT = glow + timeArt(F, time, false) + SIDES[sideKey](d);      // 시간·날짜·요일 (컬러 유지, 흑백 안 함)
+  const FILM = `
+  <rect x='0' y='1.5' width='${VW}' height='55' fill='url(#base)'/>
+  ${frames}${holes}${edge}
+  <rect x='74' y='11' width='100' height='36' rx='2.5' fill='#160b04' stroke='#c9733a' stroke-width='1' stroke-opacity='0.8'/>
+  `;
+                                                     // 필름 내용 (타들어갈 땐 컬러·흑백 두 번 그림)
+  const OVER = `<rect width='${VW}' height='${VH}' fill='url(#leak)'/><rect width='${VW}' height='${VH}' fill='url(#vig)'/><rect width='${VW}' height='${VH}' fill='${flick > 0 ? '#fff4e0' : '#000'}' opacity='${Math.abs(flick).toFixed(3)}'/>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='${VW}' height='${VH}' viewBox='0 0 ${VW} ${VH}'>
+  <defs>
+    <linearGradient id='base' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#6a3615'/><stop offset='0.45' stop-color='#7d4318'/><stop offset='1' stop-color='#5c2d11'/></linearGradient>
+    <radialGradient id='leak' cx='0.98' cy='0.1' r='0.6'><stop offset='0' stop-color='#ffb066' stop-opacity='0.55'/><stop offset='1' stop-color='#ff7a2a' stop-opacity='0'/></radialGradient>
+    <radialGradient id='vig' cx='0.5' cy='0.5' r='0.75'><stop offset='0.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='0.55'/></radialGradient>
+    <filter id='grain' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.55 0'/></filter>
+    <filter id='grain2' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='11'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.55 0'/></filter>
+    <filter id='blur'><feGaussianBlur stdDeviation='1.6'/></filter>
+    <filter id='neonWide' x='-30%' y='-80%' width='160%' height='260%'><feGaussianBlur stdDeviation='4.5'/></filter>
+    <radialGradient id='bulbAmbient'><stop offset='0' stop-color='#ffc27a' stop-opacity='0.75'/><stop offset='0.35' stop-color='#ff9a4a' stop-opacity='0.32'/><stop offset='1' stop-color='#ff7a2a' stop-opacity='0'/></radialGradient>
+    <radialGradient id='glassFill' cx='0.5' cy='0.66' r='0.6'><stop offset='0' stop-color='#ffe2b0' stop-opacity='0.75'/><stop offset='0.45' stop-color='#ffb066' stop-opacity='0.32'/><stop offset='1' stop-color='#8a5a2a' stop-opacity='0.12'/></radialGradient>
+    <linearGradient id='scorch' gradientUnits='userSpaceOnUse' x1='${SCORCH_X - 10}' y1='0' x2='${SCORCH_X + 30}' y2='0'><stop offset='0' stop-color='#1a0c05' stop-opacity='0'/><stop offset='0.25' stop-color='#1a0c05' stop-opacity='0.42'/><stop offset='0.45' stop-color='#3a1a08' stop-opacity='0.32'/><stop offset='0.75' stop-color='#4a2408' stop-opacity='0.12'/><stop offset='1' stop-color='#4a2408' stop-opacity='0'/></linearGradient>
+    <linearGradient id='toGray' gradientUnits='userSpaceOnUse' x1='${GRAY_X - 15}' y1='0' x2='${GRAY_X + 15}' y2='0'><stop offset='0' stop-color='#fff'/><stop offset='0.25' stop-color='#fff' stop-opacity='0.92'/><stop offset='0.5' stop-color='#808080'/><stop offset='0.75' stop-color='#000' stop-opacity='0.92'/><stop offset='1' stop-color='#000'/></linearGradient>
+    <linearGradient id='toColor' gradientUnits='userSpaceOnUse' x1='${GRAY_X - 15}' y1='0' x2='${GRAY_X + 15}' y2='0'><stop offset='0' stop-color='#000'/><stop offset='0.25' stop-color='#000' stop-opacity='0.92'/><stop offset='0.5' stop-color='#808080'/><stop offset='0.75' stop-color='#fff' stop-opacity='0.92'/><stop offset='1' stop-color='#fff'/></linearGradient>
+    <filter id='bwDark'><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='0.55' intercept='-0.02'/><feFuncG type='linear' slope='0.55' intercept='-0.02'/><feFuncB type='linear' slope='0.55' intercept='-0.02'/></feComponentTransfer></filter>
+    <filter id='bw'><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='1.0' intercept='0'/><feFuncG type='linear' slope='1.0' intercept='0'/><feFuncB type='linear' slope='1.0' intercept='0'/></feComponentTransfer></filter>
+    <radialGradient id='blot'><stop offset='0' stop-color='#120804' stop-opacity='0.9'/><stop offset='0.55' stop-color='#3a1a08' stop-opacity='0.55'/><stop offset='1' stop-color='#4a2408' stop-opacity='0'/></radialGradient>
+    <filter id='burnDisp' x='-30%' y='-30%' width='160%' height='160%'><feTurbulence type='fractalNoise' baseFrequency='0.11 0.08' numOctaves='4' seed='7' result='n'/><feDisplacementMap in='SourceGraphic' in2='n' scale='8' xChannelSelector='R' yChannelSelector='G'/></filter>
+    <filter id='burnSoft' x='-30%' y='-30%' width='160%' height='160%'><feTurbulence type='fractalNoise' baseFrequency='0.11 0.08' numOctaves='4' seed='7' result='n'/><feDisplacementMap in='SourceGraphic' in2='n' scale='8' xChannelSelector='R' yChannelSelector='G' result='d'/><feGaussianBlur in='d' stdDeviation='1.3'/></filter>
+    <filter id='emberGlow' x='-50%' y='-50%' width='200%' height='200%'><feTurbulence type='fractalNoise' baseFrequency='0.11 0.08' numOctaves='4' seed='7' result='n'/><feDisplacementMap in='SourceGraphic' in2='n' scale='8' xChannelSelector='R' yChannelSelector='G' result='d'/><feGaussianBlur in='d' stdDeviation='1.8'/></filter>
+    <filter id='glow2' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur stdDeviation='2.2'/></filter>
+    <linearGradient id='brass' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#7a5a22'/><stop offset='0.45' stop-color='#d6b064'/><stop offset='1' stop-color='#6a4a1a'/></linearGradient>
+  </defs>
+  ${LAYER.v !== 'top' ? `<g filter='url(#bw)'><rect width='${VW}' height='${VH}' fill='#0b0b0c'/>
+  ${BURN ? `<mask id='filmMask' maskUnits='userSpaceOnUse' x='0' y='0' width='${VW}' height='${VH}'><path d='${burnMaskPath(ms)}' fill='#fff' filter='url(#burnSoft)'/></mask><mask id='colorMask' maskUnits='userSpaceOnUse' x='0' y='0' width='${VW}' height='${VH}'><g mask='url(#filmMask)'><rect width='${VW}' height='${VH}' fill='url(#toColor)'/></g></mask><mask id='grayMask' maskUnits='userSpaceOnUse' x='0' y='0' width='${VW}' height='${VH}'><g mask='url(#filmMask)'><rect width='${VW}' height='${VH}' fill='url(#toGray)'/></g></mask><g mask='url(#colorMask)'>${FILM}</g><g mask='url(#grayMask)'><g filter='url(#bwDark)'>${FILM}</g></g><g mask='url(#filmMask)'>${BFX.onFilm}</g>${BFX.over}` : FILM}</g>` : ''}
+  ${LAYER.v === 'all' ? TEXT : ''}
+  ${LAYER.v !== 'bottom' ? `<g filter='url(#bw)'>${scratches}${GRAIN}${OVER}</g>` : ''}
+</svg>`;
+}
+if (typeof module !== 'undefined') module.exports = { vintage, FONTS, VW, VH };

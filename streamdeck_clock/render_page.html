@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#000;overflow:hidden}#b{width:992px;height:232px}</style>
+<div id="b"></div>
+<script src="vintage.js"></script>
+<script>
+// 영상 만들기용: draw(i, fps, baseMs) → i번째 장면을 4배 크기로 그림 (설정: PORTRA · Academy · 퓨추라 숫자 · 타들어감)
+SIDE_FONT.v = 'Academy Engraved LET'; SIDE_FONT.w = 400; SIDE_FONT.scale = 0.85; SIDE_FONT.burn = true;
+function draw(i, fps, baseMs) {
+  const ms = baseMs + i * 1000 / fps, d = new Date(ms);
+  document.getElementById('b').innerHTML = vintage('futura', d, ms, 'portra').replace(`width='248' height='58'`, `width='992' height='232'`);
+  document.body.offsetHeight; return 1;   // 화면에 안 보이는 창이라 requestAnimationFrame 대신 바로 반환 (스냅샷이 그림)
+}
+</script>

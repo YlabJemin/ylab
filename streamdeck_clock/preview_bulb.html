@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>빈티지 전구 시계</title>
+<style>body{background:#2a2a2a;color:#ddd;font-family:-apple-system,sans-serif;padding:24px}
+.box{width:992px;height:232px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 3px #555}
+.small{width:248px;height:58px;border-radius:6px;overflow:hidden;margin-top:10px;box-shadow:0 0 0 2px #555}</style>
+<h2>④ PORTRA · Academy Engraved — 왼쪽 빈티지 전구</h2><p>위: 4배 / 아래: 실제 크기</p>
+<div class="box" id="b"></div><div class="small" id="s"></div>
+<script>document.write(`<script src="vintage.js?v=${Date.now()}"><\/script>`)</script>
+<script>
+SIDE_FONT.v = 'Academy Engraved LET'; SIDE_FONT.w = 400; SIDE_FONT.scale = 0.85; SIDE_FONT.bulb = true;
+function draw(){ const now = new Date(), s = vintage('futura', now, now.getTime(), 'portra');
+  const uniq = (str, p) => str.replace(/id='(\w+)'/g, `id='${p}$1'`).replace(/url\(#(\w+)\)/g, `url(#${p}$1)`);
+  document.getElementById('b').innerHTML = uniq(s, 'b').replace(`width='248' height='58'`, `width='992' height='232'`);
+  document.getElementById('s').innerHTML = uniq(s, 's');
+  requestAnimationFrame(draw); }
+draw();
+</script>

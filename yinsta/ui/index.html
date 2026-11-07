@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>yinsta</title>
+<script src="lib/html2canvas.min.js"></script>
+<style>
+/* 레이아웃: [^ 띠 26][아이폰 본체 880][V 띠 26] = 무대(432×932) + 오른쪽 패널 열(300: 설정 위, 사진 소스 아래).
+   펼침(expanded)은 본체가 창을 가득, PC(pc)는 본체 대신 인스타 웹 화면(1120×800). 앱에서는 창 = 이 전체 */
+:root{
+  --bg:#ebe9e6; --phone:#ffffff; --phone-fg:#111; --phone-line:#efefef; --phone-muted:#8e8e8e; --phone-line2:#dbdbdb;
+  --accent:#0095f6; --danger:#ed4956;
+  --band1:#f4f4f5; --band2:#cfcfd3; --band3:#e6e6e9;
+  --panel:#ffffff; --panel-fg:#111; --panel-line:#e6e6e6; --panel-muted:#737373; --panel-soft:#f3f3f4;
+  --strip:#8e8e93;
+  --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --bg:#141414; --phone:#000; --phone-fg:#f5f5f5; --phone-line:#262626; --phone-muted:#a8a8a8; --phone-line2:#363636; --panel:#1c1c1e; --panel-fg:#f2f2f2; --panel-line:#333; --panel-muted:#9a9a9a; --panel-soft:#2a2a2c; --strip:#9a9a9e; color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --bg:#141414; --phone:#000; --phone-fg:#f5f5f5; --phone-line:#262626; --phone-muted:#a8a8a8; --phone-line2:#363636; --panel:#1c1c1e; --panel-fg:#f2f2f2; --panel-line:#333; --panel-muted:#9a9a9a; --panel-soft:#2a2a2c; --strip:#9a9a9e; color-scheme:dark; }
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--phone-fg);font:14px/1.45 var(--font);display:flex;align-items:center;justify-content:center;gap:0;height:100%;overflow:hidden}
+html.app body{background:transparent;align-items:flex-start;justify-content:flex-start}
+html.expanded body{align-items:stretch}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus,[contenteditable]:focus,input:focus,textarea:focus{outline:none}
+input[type=file]{display:none}
+[contenteditable]{cursor:text}
+.app-only{display:none}html.app .app-only{display:block}
+svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- 무대: 위 띠(^ PC) · 본체 · 아래 띠(V 펼침) ---- */
+.stage{position:relative;padding:0 3px 0 52px;width:481px;height:968px;flex:none;display:flex;flex-direction:column;zoom:var(--z,1);margin:auto 0}   /* 패널보다 낮을 때 세로 가운데 */
+html.expanded .stage{zoom:1}
+html.expanded .stage{height:100%;flex:1;min-width:300px;width:auto}
+html.pcmode .stage{width:calc(var(--pcw,1360px) + 52px);height:var(--pch,880px);padding:0 0 0 52px}   /* PC: 왼쪽 토글 자리 52 + 크롬 창 */
+html.pcmode .strip{display:none}
+html.pcmode .pcol{margin-top:0;height:100%}   /* PC: 브라우저 창 크기(커서로 조절) + 띠 */
+.strip{height:44px;flex:none;position:relative;display:flex;justify-content:center;align-items:flex-start}
+.strip button{position:relative;top:6px;min-width:48px;height:26px;padding:0 12px;border-radius:13px;font-size:11px;font-weight:600;letter-spacing:.02em;gap:5px;background:var(--phone);box-shadow:0 8px 20px rgba(0,0,0,.22);color:#555;display:flex;align-items:center;justify-content:center;white-space:nowrap;animation:bobTop 2s ease-in-out infinite;transition:transform .18s,box-shadow .18s}   /* 테두리 없이 그림자만, 둥둥(앱 쪽으로 모였다 떨어졌다) */
+.strip.bot button{top:12px;animation-name:bobBot}
+@keyframes bobTop{50%{transform:translateY(5px)}}@keyframes bobBot{50%{transform:translateY(-5px)}}
+.strip button:hover{animation:none;transform:scale(1.15);box-shadow:0 12px 26px rgba(0,0,0,.26);background:#fff}   /* 네이티브처럼 커서 올리면 살짝 커짐 */
+.strip button:active{transform:scale(1.05)}
+/* 왼쪽 패널 토글: 위아래 버튼처럼 떠 있음 */
+#btnPanels{position:absolute;left:12px;top:50%;margin-top:-26px;width:28px;height:52px;border-radius:14px;background:var(--phone);box-shadow:0 8px 20px rgba(0,0,0,.22);color:#555;display:grid;place-items:center;z-index:6;animation:bobLeft 2s ease-in-out infinite;transition:transform .18s,box-shadow .18s}
+#btnPanels svg{width:18px;height:18px;stroke-width:2;transition:transform .3s}
+#btnPanels.on{color:#0a7aff}#btnPanels.on svg{transform:rotate(90deg)}
+#btnPanels:hover{animation:none;transform:scale(1.15);box-shadow:0 12px 26px rgba(0,0,0,.26);background:#fff}#btnPanels:active{transform:scale(1.05)}
+@keyframes bobLeft{50%{transform:translateX(5px)}}
+html.expanded #btnPanels{margin-top:-26px}
+
+
+.strip button:hover{background:#f4f4f4}
+.strip svg{width:18px;height:18px;stroke-width:2.2;transition:transform .2s}
+html.expanded .strip.bot svg{transform:rotate(180deg)}
+html.pcmode .strip.bot{visibility:hidden}
+
+.device{position:relative;width:426px;height:880px;flex:none;padding:18px;border-radius:64px;
+  background:linear-gradient(160deg,var(--band1),var(--band2) 55%,var(--band3));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.9),inset 0 0 0 2.5px rgba(0,0,0,.18),0 24px 60px rgba(0,0,0,.28);
+  -webkit-user-select:none;user-select:none}
+html.expanded .device{width:100%;height:auto;flex:1;min-height:0}
+html.pcmode .device{display:none}
+html.app .device{box-shadow:inset 0 0 0 1px rgba(255,255,255,.9),inset 0 0 0 2.5px rgba(0,0,0,.18),0 24px 60px rgba(0,0,0,.26);cursor:grab}   /* 맥 창 그림자 대신 직접 (맥 그림자는 버튼에 회색 테두리를 만듦) */
+.sbtn{position:absolute;width:3px;background:linear-gradient(90deg,#f0f0f2,#b9b9be);}
+.sbtn.l{left:-3px;border-radius:2px 0 0 2px}.sbtn.r{right:-3px;border-radius:0 2px 2px 0;background:linear-gradient(90deg,#b9b9be,#f0f0f2)}
+.sbtn.act{top:150px;height:26px}.sbtn.vup{top:208px;height:60px}.sbtn.vdn{top:280px;height:60px}.sbtn.pwr{top:236px;height:94px;cursor:pointer}
+.phone{position:relative;width:390px;height:844px;background:var(--phone);color:var(--phone-fg);
+  border-radius:46px;box-shadow:0 0 0 7px #000,0 0 0 7.5px rgba(0,0,0,.35);overflow:hidden;cursor:default;-webkit-user-select:text;user-select:text}
+html.expanded .phone{width:100%;height:100%}
+.phone.capturing{border-radius:0;box-shadow:none}
+.capturing .notch,.capturing .del{display:none!important}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:120px;height:34px;background:#000;border-radius:20px;z-index:5}
+.status{height:54px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 32px 6px;font-size:15px;font-weight:600}
+.status #clock{min-width:40px}
+.topbar{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:relative}
+.topbar .tbadd{display:none;place-items:center;color:var(--phone-fg)}.topbar .tbadd svg{stroke-width:2.2;width:26px;height:26px}
+.logo{font-family:"Snell Roundhand","Brush Script MT","Apple Chancery",cursive;font-size:28px;font-weight:600;letter-spacing:.5px}
+.handleTop{font-weight:800;font-size:19px;display:none;align-items:center;gap:5px;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap}
+.handleTop .rd{width:7px;height:7px;border-radius:50%;background:#ff3040;margin-left:2px}
+.phone[data-tab="prof"] .logo,.phone[data-tab="prof"] .ic .hb{display:none}.phone[data-tab="prof"] .handleTop{display:flex}.phone[data-tab="prof"] .tbadd{display:grid}
+.topbar .ic .pb{display:none}.phone[data-tab="prof"] .ic .pb{display:grid}
+.topbar .ic{display:flex;gap:16px;align-items:center}
+.topbar .ic button{display:grid;place-items:center;color:var(--phone-fg)}
+.topbar .ic button.on,.gearbtn.on{color:var(--accent)}
+.screen{position:absolute;top:100px;bottom:0;left:0;right:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+/* 2026 인스타: 떠 있는 반투명 알약 하단바 */
+.tabbar{position:absolute;left:50%;transform:translateX(-50%);bottom:26px;width:334px;height:56px;border-radius:28px;background:rgba(255,255,255,.07);-webkit-backdrop-filter:blur(16px) saturate(1.45) brightness(1.03);backdrop-filter:blur(16px) saturate(1.45) brightness(1.03);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 0 0 1px rgba(255,255,255,.4),inset 0 -1px 0 rgba(0,0,0,.04),0 12px 30px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.06);display:flex;justify-content:space-evenly;align-items:center;padding:0 6px;z-index:5}   /* 리퀴드 글래스: 전체가 고르게 맑은 유리 (방향성 반사·가장자리 띠 제거) */
+.capturing .tabbar{background:rgba(255,255,255,.9)}
+.tabbar button{width:50px;height:46px;display:grid;place-items:center;color:var(--phone-fg);position:relative}.tabbar button svg{width:26px;height:26px;stroke-width:1.7}
+.tabbar button.on svg{stroke-width:2.4}
+.tabbar .rd{position:absolute;width:8px;height:8px;border-radius:50%;background:#ff3040;right:12px;bottom:11px;box-shadow:0 0 0 1.5px #fff}
+.tabbar .hl{position:absolute;top:50%;left:0;width:60px;height:46px;margin-top:-23px;border-radius:23px;background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 .6px rgba(255,255,255,.5),inset 0 1px 0 rgba(255,255,255,.6);transition:left .55s cubic-bezier(.3,1.45,.45,1);pointer-events:none;opacity:0}   /* 선택된 탭 뒤 회색, 전환할 때 반동 있게 슝 */
+.tabbar .hl.on{opacity:1}
+.tabbar .me{width:30px;height:30px;border-radius:50%;border:1.5px solid transparent;display:grid;place-items:center}
+.tabbar button.on .me{border-color:var(--phone-fg)}
+.view{display:none;padding-bottom:100px}.view.on{display:block}   /* 하단 알약 밑으로 내용이 지나가도 끝까지 올릴 수 있게 */
+
+/* 아바타 공통 */
+.av{display:grid;place-items:center;border-radius:50%;overflow:hidden;background:var(--phone-line);color:var(--phone-muted);font-weight:600;width:100%;height:100%;position:relative}
+.av::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);pointer-events:none}   /* 가장자리 회색 선, 항상 */
+.av img{width:100%;height:100%;object-fit:cover;display:block;transform-origin:center;-webkit-user-drag:none}
+.pring{flex:none;border-radius:50%;padding:2.5px;background:linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7);cursor:pointer;transition:.15s}
+.pring.seen{background:#c7c7c7}
+.pring.hot{box-shadow:0 0 0 3px var(--accent)}
+.pring .gap{width:100%;height:100%;border-radius:50%;background:var(--phone);padding:4px;pointer-events:none}
+.pring .avbox{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.13);pointer-events:none}
+
+/* 시작 화면 */
+.splash{position:absolute;inset:0;background:var(--phone);z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .45s ease}
+.splash.off{opacity:0;pointer-events:none}
+.applogo{width:92px;height:92px;display:block;filter:drop-shadow(0 8px 16px rgba(214,36,159,.22))}
+.splash .from{position:absolute;bottom:44px;font-size:12px;color:var(--phone-muted);letter-spacing:.02em}
+.splash .from b{color:var(--phone-fg);font-weight:700;font-size:15px;margin-left:4px}
+
+/* 스토리 줄 */
+.stories{display:flex;gap:14px;padding:10px 12px 6px;overflow-x:auto;scrollbar-width:none}
+.stories::-webkit-scrollbar{display:none}
+.story{flex:none;width:64px;text-align:center;font-size:11px;color:var(--phone-fg)}
+.story .ring{width:62px;height:62px;border-radius:50%;padding:2px;background:linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7);margin:0 auto 4px}
+.story .ring.plain{background:var(--phone-line)}
+.story .ring .in{width:100%;height:100%;border-radius:50%;background:var(--phone);padding:2px}
+.story .ring img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.story .ring .av{font-size:20px}
+.story .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px;border-radius:4px}
+.story .nm[contenteditable]:hover{background:var(--phone-line)}
+.stories.hot{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:12px}
+.story.ghost{opacity:.3}
+.ctx{position:fixed;z-index:200;background:var(--panel);color:var(--panel-fg);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25),0 0 0 1px rgba(0,0,0,.1);padding:4px;min-width:150px;font-size:13px}
+.ctx button{display:block;width:100%;text-align:left;padding:5px 10px;border-radius:5px}
+.ctx button:hover{background:var(--mac,#0a7aff);color:#fff}
+
+/* 게시물 */
+.post{margin-bottom:14px}
+.post .head{display:flex;align-items:center;gap:10px;padding:8px 12px}
+.post .avbox{width:32px;height:32px;flex:none;font-size:13px;box-shadow:0 0 0 1px rgba(0,0,0,.13)}   /* 프로필 사진 가장자리 회색 선 (진짜 인스타처럼) */
+.tabbar .me .avbox{box-shadow:0 0 0 1px rgba(0,0,0,.13)}
+.post .name{font-weight:600;font-size:13px}
+.post .more{margin-left:auto}
+.post .media{width:100%;background:#000;display:block;position:relative;overflow:hidden}
+.post .media img{width:100%;height:100%;object-fit:cover;display:block;-webkit-user-drag:none}
+.ratio-45 .post .media{aspect-ratio:4/5}
+.ratio-11 .post .media{aspect-ratio:1/1}
+.post .acts{display:flex;gap:14px;padding:8px 12px 4px}
+.post .acts .save{margin-left:auto}
+.post .likes{padding:0 12px;font-weight:600;font-size:13px}
+.post .likes span{font-variant-numeric:tabular-nums}
+.post .cap{padding:2px 12px;font-size:13px;white-space:pre-wrap;word-break:break-word}
+.post .cap b{font-weight:600;margin-right:5px}
+.post .cap .txt{min-width:40px}
+.post .cap.addcap{opacity:0;transition:opacity .15s}
+.post:hover .cap.addcap,.post .cap.addcap:focus-within{opacity:1}
+.post .cap .txt:empty::before{content:"문구 추가…";color:var(--phone-muted)}
+.post .time{padding:2px 12px 0;font-size:11px;color:var(--phone-muted);display:inline-block;min-width:60px}
+.heart.on{color:var(--danger);fill:var(--danger)}
+
+/* 프로필 (폰) */
+.prof{padding:10px 16px 0}
+.prof .row{display:flex;align-items:center;gap:22px}
+.prof .pring{width:96px;height:96px}
+.prof .pring .avbox{font-size:30px}
+.prof .stats{display:flex;flex:1;justify-content:space-around;text-align:center;font-size:13px}
+.prof .stats b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
+.prof .bio{margin-top:12px;font-size:13px;line-height:1.4;white-space:pre-wrap}
+.prof .bio .nm{font-weight:600;display:block}
+.prof .btns{display:flex;gap:6px;margin:14px 0}
+.prof .btns button{flex:1;height:32px;border-radius:8px;background:var(--phone-line);font-weight:600;font-size:13px;color:var(--phone-fg)}
+.gridtabs{display:flex;border-top:1px solid var(--phone-line);margin-top:4px}
+.gridtabs div{flex:1;text-align:center;padding:10px 0 9px;color:var(--phone-muted);position:relative}.gridtabs div svg{stroke-width:1.6}
+.gridtabs div.on{color:var(--phone-fg)}.gridtabs div.on::after{content:'';position:absolute;left:19%;right:19%;bottom:0;height:2px;border-radius:1px;background:var(--phone-fg)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;min-height:120px;margin-top:3px}   /* 탭 밑줄이 첫 줄 사진에 닿지 않게 */
+.grid.hot{outline:3px dashed var(--accent);outline-offset:-3px}
+.cell{position:relative;aspect-ratio:3/4;background:var(--phone-line);overflow:hidden;cursor:pointer}.cell:active{cursor:grab}
+.ratio-11 .grid .cell{aspect-ratio:1/1}
+.cell img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.cell.ghost{opacity:.25}
+.cell.over::after{content:"";position:absolute;inset:0;border:3px solid var(--accent);pointer-events:none}
+.cell.ins::before{content:"";position:absolute;left:-2px;top:0;bottom:0;width:4px;background:var(--accent);z-index:2}
+.cell .del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:none;place-items:center;font-size:14px;line-height:1}
+.cell:hover .del{display:grid}
+.empty{padding:60px 24px;text-align:center;color:var(--phone-muted);font-size:13px;line-height:1.6}
+.empty .cam{width:62px;height:62px;border:2px solid var(--phone-fg);border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;color:var(--phone-fg)}
+.empty .cam svg{width:30px;height:30px}
+.empty h3{color:var(--phone-fg);margin:0 0 6px;font-size:22px;font-weight:700}
+
+/* ---- PC(인스타 웹) 화면 ---- */
+/* 크롬 브라우저 창 — 사용자 크롬 캡처 측정값 그대로 (틀 #d6e2fb, 탭 줄 40, 도구 줄 46, 주소창 34 #eef2f9, 북마크 줄 34). 신호등 버튼만 없음 */
+.browser{display:none;flex:1;min-height:0;flex-direction:column;border-radius:10px;overflow:hidden;background:#d6e2fb;box-shadow:0 0 0 1px rgba(0,0,0,.16),0 18px 50px rgba(0,0,0,.28);font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;color:#1f1f1f;-webkit-user-select:none;user-select:none}
+html.app .browser{box-shadow:0 0 0 .5px rgba(0,0,0,.2),0 22px 56px rgba(0,0,0,.26)}
+html.pcmode .browser{display:flex}
+.browser .tabs{height:40px;display:flex;align-items:flex-end;padding:0 8px 0 8px;flex:none;cursor:default;position:relative}
+.browser .tabs .wl{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#1f1f1f;margin:0 2px 6px 0;flex:none;background:#edf3fd}.browser .tabs .wl svg{width:16px;height:16px;stroke-width:2.2}.browser .tabs .wl:hover{background:#dde7f7}.browser .tabs .wl.on{color:#0a7aff}
+.browser .tabs .wl.txt{width:auto;padding:0 10px 0 8px;border-radius:14px;display:flex;gap:5px;font-size:12px;font-weight:500;background:#fff;margin-right:6px}.browser .tabs .wl.txt:hover{background:#f3f6fc}
+.browser .tab{height:32px;padding:0 6px 0 12px;display:flex;align-items:center;gap:8px;font-size:12px;color:#1f1f1f;width:182px;position:relative;flex:none;border-radius:8px 8px 0 0}
+.browser .tab+.tab::before{content:'';position:absolute;left:-1px;top:8px;bottom:8px;width:1px;background:#a9b6cf}   /* 비활성 탭 사이 세로선 */
+.browser .tab.on{background:#fff;z-index:1}.browser .tab.on::before,.browser .tab.on+.tab::before{display:none}
+.browser .tab.on .c1,.browser .tab.on .c2{position:absolute;bottom:0;width:8px;height:8px;background:#fff}   /* 활성 탭 아래 바깥으로 휘는 곡선 */
+.browser .tab.on .c1{left:-8px;-webkit-mask:radial-gradient(circle at 0 0,transparent 8px,#000 8.5px);mask:radial-gradient(circle at 0 0,transparent 8px,#000 8.5px)}
+.browser .tab.on .c2{right:-8px;-webkit-mask:radial-gradient(circle at 100% 0,transparent 8px,#000 8.5px);mask:radial-gradient(circle at 100% 0,transparent 8px,#000 8.5px)}
+.browser .tab .fav{width:16px;height:16px;flex:none;border-radius:3px;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;font-style:normal}
+.browser .tab span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;mask:linear-gradient(90deg,#000 85%,transparent);-webkit-mask:linear-gradient(90deg,#000 85%,transparent)}
+.browser .tab .x{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;color:#1f1f1f;flex:none}.browser .tab .x svg{width:12px;height:12px;stroke-width:2.2}.browser .tab .x:hover{background:#dde3ee}
+.browser .tabs .newtab{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#1f1f1f;margin:0 0 6px 6px;flex:none}.browser .tabs .newtab svg{width:16px;height:16px;stroke-width:2}.browser .tabs .newtab:hover{background:#c6d4ee}
+.browser .tabs .gem{margin:0 0 6px auto;height:28px;border-radius:14px;background:#fff;display:flex;align-items:center;gap:8px;padding:0 12px 0 10px;font-size:13px;color:#1f1f1f;flex:none;white-space:nowrap}
+.browser .tabs .gem i{width:16px;height:16px;background:conic-gradient(from 200deg,#4285f4,#9b72cb,#d96570,#f6ad3c,#4285f4);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C12 6.6 17.4 12 24 12 17.4 12 12 17.4 12 24 12 17.4 6.6 12 0 12 6.6 12 12 6.6 12 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C12 6.6 17.4 12 24 12 17.4 12 12 17.4 12 24 12 17.4 6.6 12 0 12 6.6 12 12 6.6 12 0z'/%3E%3C/svg%3E") center/contain no-repeat}
+.browser .tool{height:46px;background:#fff;display:flex;align-items:center;gap:4px;padding:0 10px 0 6px;flex:none;cursor:default}
+.browser .tool button{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#474747;flex:none}.browser .tool button svg{width:20px;height:20px;stroke-width:1.9}.browser .tool button:hover{background:#eef1f6}.browser .tool button.dis{color:#ababab;pointer-events:none}
+.browser .addr{flex:1;height:34px;border-radius:17px;background:#eef2f9;display:flex;align-items:center;gap:6px;padding:0 6px 0 12px;margin:0 6px 0 2px;font-size:14px;color:#1f1f1f;white-space:nowrap;cursor:text;min-width:0}
+.browser .addr>svg{width:16px;height:16px;color:#474747;flex:none;stroke-width:2;margin-right:6px}
+.browser .addr .url{flex:1;overflow:hidden;text-overflow:ellipsis}.browser .addr .url b{font-weight:400;color:#5e5e5e}
+.browser .addr .ib{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#474747;flex:none}.browser .addr .ib svg{width:18px;height:18px;stroke-width:1.9}.browser .addr .ib:hover{background:#dde4ef}.browser .addr .ib.star{color:#3265cb}
+.browser .tool .me{width:28px;height:28px;border-radius:50%;background:#3c4a5c;color:#fff;display:grid;place-items:center;margin:0 8px 0 12px;font-size:10px;font-weight:600;flex:none}
+.browser .tool .upd{height:34px;border-radius:17px;background:#d6e2fb;display:flex;align-items:center;gap:4px;padding:0 6px 0 14px;font-size:13px;color:#1f1f1f;flex:none;white-space:nowrap}.browser .tool .upd svg{width:18px;height:18px}
+.browser .bm{height:34px;background:#fff;display:flex;align-items:center;gap:0;padding:0 8px;flex:none;font-size:12px;color:#1f1f1f;cursor:default;border-bottom:1px solid #e1e3e1}
+.browser .bm span{display:flex;align-items:center;gap:7px;white-space:nowrap;padding:0 9px;height:26px;border-radius:13px}.browser .bm span:hover{background:#eef1f6}
+.browser .bm i{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;font-style:normal;flex:none}
+.browser .bm .fo{width:16px;height:12px;border-radius:2px;background:#f5c842;position:relative}.browser .bm .fo::before{content:'';position:absolute;left:0;top:-3px;width:7px;height:4px;border-radius:2px 2px 0 0;background:#f5c842}
+.browser .bm .grp{color:#2f6f35;background:#e9f4eb;height:22px;padding:0 9px;border-radius:6px;font-weight:500}
+.browser .bm .apps{width:28px;height:26px;display:grid;place-items:center;padding:0}.browser .bm .apps svg{width:16px;height:16px;stroke-width:1.8;color:#474747}
+.browser .bm .sep{width:1px;height:18px;background:#c7c7c7;margin:0 6px;flex:none}
+/* 페이지 오른쪽 세로 스크롤바 (크롬처럼 항상 보임) */
+.pc .sb{position:absolute;right:0;top:0;bottom:0;width:15px;background:#fff;border-left:1px solid #e8e8e8;z-index:4;pointer-events:none}
+.pc .sb i{position:absolute;left:3px;right:3px;top:2px;height:60px;border-radius:5px;background:#c1c1c1;transition:top .05s linear}
+.pc{display:none;flex:1;min-height:0;background:var(--phone);color:var(--phone-fg);overflow:hidden;position:relative}
+html.pcmode .pc{display:flex}
+.pc.capturing{border-radius:0;box-shadow:none}
+.pc{container-type:inline-size}   /* 창 폭에 따라 실제 인스타처럼: <1264 아이콘 레일, <1160 오른쪽 추천 숨김 */
+.pcnav{width:72px;flex:none;padding:10px 0 20px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.pcnav .pclogo{height:92px;display:flex;align-items:center;justify-content:center;padding:0}
+.pcnav .pclogo .word{display:none;font-family:"Snell Roundhand","Brush Script MT","Apple Chancery",cursive;font-size:30px;font-weight:600;padding:0 12px}
+.pcnav .pclogo .glyph{width:26px;height:26px;stroke-width:2}
+.pcnav .sp{flex:1}
+.pcnav button{display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border-radius:8px;font-size:16px;color:var(--phone-fg);position:relative;flex:none}
+.pcnav button svg{width:26px;height:26px;stroke-width:1.8;flex:none}
+.pcnav button .lb{display:none;white-space:nowrap}
+.pcnav button:hover{background:var(--phone-line)}
+.pcnav button.on svg{stroke-width:2.6}.pcnav button.on .lb{font-weight:700}
+.pcnav .badge{position:absolute;top:6px;right:4px;min-width:18px;height:18px;border-radius:9px;background:#ff3040;color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px;box-shadow:0 0 0 2px #fff}
+.pcnav .dot{position:absolute;top:11px;right:11px;width:8px;height:8px;border-radius:50%;background:#ff3040;box-shadow:0 0 0 2px #fff}
+.pcnav .pcme{width:26px;height:26px;font-size:11px;flex:none}
+.pcnav button.on .pcme{box-shadow:0 0 0 2px var(--phone-fg)}
+@container (min-width:1400px){   /* 사용자 크롬(1355폭)에서 아이콘 레일이었음 → 그보다 넓을 때만 글자 메뉴 */
+  .pcnav{width:244px;align-items:stretch;padding:8px 12px 20px}
+  .pcnav .pclogo{justify-content:flex-start;height:auto;padding:22px 12px 26px}.pcnav .pclogo .word{display:block;padding:0}.pcnav .pclogo .glyph{display:none}
+  .pcnav .sp.top{flex:0}
+  .pcnav button{width:100%;height:auto;justify-content:flex-start;gap:16px;padding:12px}
+  .pcnav button .lb{display:inline}
+  .pcnav .badge{position:static;margin-left:auto;box-shadow:none}.pcnav .dot{top:10px;left:30px;right:auto}
+}
+@container (max-width:1159px){ .pcside{display:none} }
+.pcmain{flex:1;min-width:0;overflow:auto;scrollbar-width:none;position:relative;padding-right:15px}.pcmain::-webkit-scrollbar{display:none}
+.pcmsg{position:absolute;right:24px;bottom:22px;height:56px;border-radius:28px;background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.2),0 0 0 .5px rgba(0,0,0,.06);display:flex;align-items:center;gap:12px;padding:0 10px 0 18px;z-index:3;font-weight:600;font-size:16px}
+.pcmsg .ic{position:relative;display:grid;place-items:center}.pcmsg .ic svg{width:24px;height:24px;stroke-width:1.9}
+.pcmsg .ic i{position:absolute;left:-6px;bottom:-6px;min-width:18px;height:18px;border-radius:9px;background:#ff3040;color:#fff;font-size:11px;font-style:normal;display:grid;place-items:center;padding:0 5px;box-shadow:0 0 0 2px #fff}
+.pcmsg .avbox{width:36px;height:36px;font-size:13px;flex:none;margin-left:28px}
+.pcview{display:none}.pcview.on{display:block}
+#pc-home.on{display:flex;justify-content:center;gap:150px;padding:24px 20px 80px}
+.pccenter{width:470px;max-width:100%;flex:none}
+.pccenter .stories{padding:0 0 22px;gap:15px}
+.pccenter .story{width:88px;font-size:12px}.pccenter .story .ring{width:88px;height:88px;padding:2.5px;margin-bottom:6px}.pccenter .story .ring .in{padding:2.5px}.pccenter .story .ring .av{font-size:28px}
+.pccenter .post .head{padding:8px 0 10px}.pccenter .post .name{font-size:14px}.pccenter .post .name::after{content:" • " attr(data-t);font-weight:400;color:var(--phone-muted)}.pccenter .post .time{display:none}
+.pccenter .post .acts{padding:10px 0 6px;gap:16px}.pccenter .post .likes,.pccenter .post .cap{font-size:14px}
+.pccenter .post{border-bottom:1px solid var(--phone-line);padding-bottom:12px;margin-bottom:18px}
+.pccenter .post .head,.pccenter .post .acts,.pccenter .post .likes,.pccenter .post .cap,.pccenter .post .time{padding-left:0;padding-right:0}
+.pccenter .post .media{border-radius:4px;overflow:hidden;border:1px solid var(--phone-line)}
+.pcside{width:320px;flex:none;padding-top:12px;font-size:14px}
+.pcside .merow{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.pcside .merow .avbox{width:48px;height:48px;font-size:17px;flex:none}
+.pcside .merow b{display:block;font-size:14px}.pcside .merow span{color:var(--phone-muted)}
+.pcside .merow a{margin-left:auto;color:var(--accent);font-weight:600;font-size:12px}
+.pcside .sug{display:flex;justify-content:space-between;align-items:center;color:var(--phone-muted);font-weight:600;margin-bottom:14px}
+.pcside .sug a{color:var(--phone-fg);font-size:12px}
+.pcside .srow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.pcside .srow .ph{width:44px;height:44px;border-radius:50%;overflow:hidden;background:var(--phone-line);flex:none}
+.pcside .srow img{width:100%;height:100%;object-fit:cover}
+.pcside .srow b{display:block;font-size:14px}.pcside .srow span{color:var(--phone-muted);font-size:12px}
+.pcside .srow a{margin-left:auto;color:var(--accent);font-weight:600;font-size:12px}
+.pcside .foot{margin-top:34px;color:var(--phone-muted);font-size:12px;line-height:1.8}.pcside .foot b{display:block;margin-top:14px;font-weight:400;text-transform:uppercase}
+#pc-prof.on{display:block;max-width:935px;margin:0 auto;padding:30px 20px 40px}
+.pchead{display:flex;gap:30px;margin-bottom:34px}
+.pchead .avcol{width:290px;flex:none;display:flex;justify-content:center}
+.pchead .pring{width:160px;height:160px}
+.pchead .pring .avbox{font-size:56px}
+.pcinfo{flex:1;min-width:0;padding-top:8px}
+.pcrow1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.pcrow1 h2{margin:0 12px 0 0;font-size:20px;font-weight:400}
+.pcrow1 button{height:32px;padding:0 16px;border-radius:8px;background:var(--phone-line);font-weight:600;font-size:14px;color:var(--phone-fg)}
+.pcrow1 button.gear{background:none;padding:0 4px}
+.pcrow2{display:flex;gap:40px;font-size:16px;margin-bottom:20px}
+.pcrow2 b{font-weight:600;font-variant-numeric:tabular-nums}
+.pcrow3 b{display:block;font-size:14px}.pcrow3 div{font-size:14px;white-space:pre-wrap;line-height:1.5}
+.pctabs{display:flex;justify-content:center;gap:60px;border-top:1px solid var(--phone-line2);font-size:12px;letter-spacing:1px;font-weight:600;color:var(--phone-muted)}
+.pctabs div{padding:16px 0;margin-top:-1px}
+.pctabs div.on{color:var(--phone-fg);border-top:1px solid var(--phone-fg)}
+.pcgrid{gap:4px;min-height:200px}
+
+/* 창들 (무대 위에 떠서 폰·PC 둘 다 덮음) */
+.overlay{display:none;position:absolute;left:52px;right:3px;top:44px;bottom:44px;background:rgba(0,0,0,.5);z-index:20;place-items:center;border-radius:64px}
+html.pcmode .overlay{border-radius:0 0 10px 10px;top:121px;bottom:0;left:52px;right:0}
+.overlay.on{display:grid}
+.confirm .box{background:var(--phone);color:var(--phone-fg);border-radius:14px;width:260px;text-align:center;overflow:hidden}
+.confirm .box p{padding:22px 16px 18px;margin:0;font-size:15px;font-weight:600;color:var(--phone-fg)}
+.confirm .box button{display:block;width:100%;padding:13px;border-top:1px solid var(--phone-line);font-size:14px;color:var(--phone-fg)}
+.confirm .box button.red{color:var(--danger);font-weight:700}
+.sheet{align-items:end}
+html.pcmode .sheet{align-items:center}
+.sheet .box{background:var(--phone);color:var(--phone-fg);border-radius:18px;width:380px;max-width:92%;margin:0 auto 26px;padding:0 0 22px;max-height:88%;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+html.pcmode .sheet .box{margin:0 auto}
+.sheet .bar{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--phone-line);font-weight:700;font-size:16px}
+.sheet .bar button{font-size:15px;color:var(--phone-fg)}
+.sheet .bar button.ok{color:var(--accent);font-weight:700}
+.sheet .avwrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0 6px}
+.sheet .avwrap .avbox{width:86px;height:86px;font-size:34px;box-shadow:0 0 0 1px rgba(0,0,0,.13)}
+.sheet .avwrap button{color:var(--accent);font-weight:600;font-size:14px}
+.sheet .zoom{display:flex;align-items:center;gap:10px;width:220px;font-size:12px;color:var(--phone-muted)}
+.sheet .zoom input{flex:1;accent-color:var(--phone-fg)}
+.sheet .f{padding:10px 16px 0}
+.sheet .f label{display:block;font-size:12px;color:var(--phone-muted);margin-bottom:5px}
+.sheet .f input,.sheet .f textarea{width:100%;font:inherit;font-size:14px;color:var(--phone-fg);background:var(--phone);border:1px solid var(--phone-line2);border-radius:8px;padding:8px 10px;resize:none}
+.sheet .f input:focus,.sheet .f textarea:focus{border-color:var(--phone-muted)}
+.sheet .two{display:flex;gap:12px}.sheet .two .f{flex:1;padding-left:0}.sheet .two .f:first-child{padding-left:16px}.sheet .two .f:last-child{padding-right:16px}
+.crop .box{padding-bottom:18px}
+.crop .frames{display:flex;justify-content:center;align-items:flex-end;gap:14px;padding:18px 16px 4px}
+.crop .fr{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px;color:var(--phone-muted)}
+.crop .fbox{position:relative;overflow:hidden;background:#000;cursor:grab;box-shadow:0 0 0 1px var(--phone-line2);touch-action:none}
+.crop .fbox:active{cursor:grabbing}
+.crop .fbox img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-drag:none}
+.crop .fbox.feed{width:200px;aspect-ratio:4/5}.ratio-11 .crop .fbox.feed{aspect-ratio:1/1}
+.crop .fbox.cellbox{width:120px;aspect-ratio:3/4}.ratio-11 .crop .fbox.cellbox{aspect-ratio:1/1}
+.crop .hint{text-align:center;font-size:12px;color:var(--phone-muted);margin:8px 0 2px}
+.crop .zoom{margin:8px auto 0;width:260px}
+.crop .reset{display:block;margin:12px auto 0;color:var(--accent);font-weight:600;font-size:14px}
+.shot .box{background:var(--phone);color:var(--phone-fg);border-radius:14px;width:300px;padding:14px;text-align:center}
+.shot img{width:100%;border:1px solid var(--phone-line);border-radius:8px;display:block;margin-bottom:10px}
+.shot p{margin:0 0 10px;font-size:12.5px;color:var(--phone-muted);line-height:1.5}
+.shot .bt{display:flex;gap:6px}
+.shot .bt a,.shot .bt button{flex:1;height:34px;display:grid;place-items:center;border-radius:8px;background:var(--phone-line);color:var(--phone-fg);font-weight:600;font-size:13px;text-decoration:none}
+.shot .bt .pri{background:var(--accent);color:#fff}
+.dropHint{display:none;position:absolute;inset:0;z-index:35;background:rgba(0,149,246,.18);border:3px dashed var(--accent);border-radius:46px;place-items:center;color:var(--accent);font-weight:700;font-size:18px;pointer-events:none}
+.pc .dropHint{border-radius:0}
+body.dragging .dropHint{display:grid}
+.toast{position:absolute;left:50%;bottom:112px;transform:translateX(-50%) translateY(16px);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:50;max-width:88%;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+/* ---- 오른쪽 패널 열 (설정 위 · 사진 소스 아래) ---- */
+.pcol{display:none;flex-direction:column;gap:12px;width:460px;flex:none;margin-top:44px;height:880px;order:-1;zoom:var(--pz,1)}   /* 왼쪽, 배율은 디스플레이에 따라서만(--pz, 슬라이더와 무관) */
+.pcol.on{display:flex}
+html.expanded .pcol{height:calc(100% - 88px)}
+.panel{display:none;flex-direction:column;background:var(--panel);color:var(--panel-fg);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14),inset 0 0 0 1px rgba(0,0,0,.08);overflow:hidden;font-size:13px;min-height:0;--mac:#0a7aff}
+html.app .panel{box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.panel.on{display:flex}
+#pSettings{flex:none}#pSources{flex:1}
+.panel .ph{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 9px;font-weight:600;font-size:13px;border-bottom:1px solid var(--panel-line);background:linear-gradient(var(--panel),var(--panel-soft));cursor:grab;-webkit-user-select:none;user-select:none}
+.panel .ph button{width:14px;height:14px;border-radius:50%;background:#ff5f57;border:1px solid rgba(0,0,0,.15);color:transparent;display:grid;place-items:center;font-size:9px;cursor:pointer;order:-1;margin-right:8px}
+.panel .ph button:hover{color:rgba(0,0,0,.6)}
+.panel .ph span:first-of-type{flex:1}
+.panel .pb{flex:1;overflow:auto;padding:12px 16px 16px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.panel .opt label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--panel-muted);font-weight:600;margin-bottom:6px}
+.seg{display:flex;background:rgba(0,0,0,.06);border-radius:7px;padding:2px;gap:2px}
+.seg button{flex:1;height:22px;border-radius:5px;font-size:12px;color:var(--panel-fg)}
+.seg button.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.2),0 0 0 .5px rgba(0,0,0,.08);font-weight:600}
+.gauge{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--panel-muted)}
+.gauge .sl{flex:1;position:relative}
+.gauge .sl input{-webkit-appearance:none;appearance:none;display:block;width:100%;height:4px;margin:7px 0 0;border-radius:2px;background:linear-gradient(var(--mac),var(--mac)) 0/var(--p,50%) 100% no-repeat,rgba(0,0,0,.13);outline:none}
+.gauge .sl input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 1px 2.5px rgba(0,0,0,.35);cursor:pointer}
+.gauge .ticks{display:flex;justify-content:space-between;padding:0 9px;margin-top:4px}.gauge .ticks i{width:1px;height:5px;background:rgba(0,0,0,.28)}
+.gauge b{min-width:38px;text-align:right;font-variant-numeric:tabular-nums;color:var(--panel-fg)}
+.row2{display:flex;gap:8px}.row2[hidden]{display:none}
+.row2 button{flex:1;height:26px;border-radius:6px;border:1px solid rgba(0,0,0,.16);background:linear-gradient(var(--panel),var(--panel-soft));box-shadow:0 1px 1px rgba(0,0,0,.06);font-size:13px;font-weight:500;color:var(--panel-fg)}
+.row2 button.warn{color:#d0342c}
+.row2 button.pri{background:linear-gradient(#3b95ff,var(--mac));color:#fff;border-color:rgba(0,0,0,.1)}
+.row2 button:active{filter:brightness(.92)}
+.row2 button:disabled{opacity:.4;cursor:default}
+.panel p.note{margin:0;color:var(--panel-muted);font-size:12px;line-height:1.5}
+.count{font-variant-numeric:tabular-nums}
+#pSources.hot .pb{outline:3px dashed var(--accent);outline-offset:-6px;border-radius:14px}
+.srcgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.src{position:relative;aspect-ratio:3/4;border-radius:8px;overflow:hidden;background:var(--panel-soft);cursor:grab}
+.src img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.src .nm{position:absolute;left:0;right:0;bottom:0;padding:2px 5px;font-size:9px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.6));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.src .ok{position:absolute;top:5px;left:5px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;font-size:12px}
+.src.posted .ok{display:grid}.src.posted img{opacity:.55}
+.src .del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:none;place-items:center;font-size:12px;line-height:1}
+.src:hover .del{display:grid}
+.src.ghost{opacity:.3}
+/* 사진 소스 선택 모드 (Delete) */
+.src .ck{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;border:1.5px solid #fff;background:rgba(0,0,0,.35);box-shadow:0 0 0 1px rgba(0,0,0,.25);color:#fff;display:none;place-items:center;font-size:12px;line-height:1}
+#pSources.sel .src{cursor:pointer}#pSources.sel .src .ck{display:grid}#pSources.sel .src .ok{display:none}#pSources.sel .src.posted img{opacity:1}
+.src.sel .ck{background:var(--mac);border-color:#fff}
+.src.sel::after{content:'';position:absolute;inset:0;border-radius:8px;box-shadow:inset 0 0 0 3px var(--mac);pointer-events:none}
+.row2 .cnt{opacity:.7;font-weight:400}
+.srcempty{text-align:center;color:var(--panel-muted);padding:30px 10px;border:1.5px dashed var(--panel-line);border-radius:12px;line-height:1.6;font-size:12.5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body class="ratio-45">
+<div class="stage" id="stage">
+  <button id="btnPanels" title="설정 · 사진 소스 패널"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <div class="strip top"><button id="btnPC" title="PC(웹) 화면으로 보기"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>PC 버전</button></div>
+
+  <div class="device" id="device">
+    <div class="sbtn l act"></div><div class="sbtn l vup"></div><div class="sbtn l vdn"></div><div class="sbtn r pwr" id="pwr" title="종료"></div>
+    <div class="phone" id="phone" data-tab="home">
+      <div class="notch"></div>
+      <div class="status"><span id="clock">9:41</span><span>●●● ᯤ ▮</span></div>
+      <div class="topbar">
+        <button class="tbadd" data-add title="사진 넣기"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <div class="logo">yinsta</div>
+        <div class="handleTop"><span id="handleTop">yinsta.studio</span><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke-width:2.4"><path d="m6 9 6 6 6-6"/></svg><i class="rd"></i></div>
+        <div class="ic">
+          <button class="hb" title="알림"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg></button>
+          <button class="hb" title="메시지"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
+          <button class="pb" title="Threads"><svg viewBox="0 0 24 24"><path d="M11.9 21.5C7 21.5 3.6 18 3.6 12S7 2.5 11.9 2.5c3.9 0 6.7 2 7.7 5.2"/><path d="M8.6 9.6c.6-1.5 1.9-2.3 3.5-2.3 2.2 0 3.6 1.3 3.8 3.6l.1 1.6c.1 3.1-1.5 5.3-4.3 5.3-2.2 0-3.7-1-4.3-2.4"/><path d="M15.9 12.4c-1-.6-2.2-.9-3.6-.9-2 0-3.3.9-3.3 2.3s1.3 2.2 3 2.2c2 0 3.5-1.1 3.9-3.6"/></svg></button>
+          <button class="pb gearbtn" data-gear title="설정 패널"><svg viewBox="0 0 24 24" style="stroke-width:2.2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <button class="hb gearbtn" data-gear title="설정 패널" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+        </div>
+      </div>
+      <div class="screen" id="screen">
+        <section class="view on" id="v-home"><div class="stories" id="stories"></div><div class="feed" id="feed"></div></section>
+        <section class="view" id="v-prof">
+          <div class="prof">
+            <div class="row">
+              <div class="pring" data-ring title="누르면 스토리 본/안 본 전환 · 사진을 끌어다 놓으면 프로필 사진"><div class="gap"><div class="av avbox" data-av></div></div></div>
+              <div class="stats"><div><b class="count" data-posts>0</b>게시물</div><div><b data-followers>1,024</b>팔로워</div><div><b data-following>312</b>팔로잉</div></div>
+            </div>
+            <div class="bio"><span class="nm" data-name>보통사진관</span><span data-bio></span></div>
+            <div class="btns"><button data-edit>프로필 편집</button><button data-share>프로필 공유</button></div>
+          </div>
+          <div class="gridtabs">
+            <div class="on"><svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><rect x="3" y="3" width="5" height="5" rx=".9"/><rect x="9.5" y="3" width="5" height="5" rx=".9"/><rect x="16" y="3" width="5" height="5" rx=".9"/><rect x="3" y="9.5" width="5" height="5" rx=".9"/><rect x="9.5" y="9.5" width="5" height="5" rx=".9"/><rect x="16" y="9.5" width="5" height="5" rx=".9"/><rect x="3" y="16" width="5" height="5" rx=".9"/><rect x="9.5" y="16" width="5" height="5" rx=".9"/><rect x="16" y="16" width="5" height="5" rx=".9"/></svg></div>
+            <div><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M10 9l5 3-5 3z"/></svg></div>
+            <div><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+            <div><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><circle cx="12" cy="11" r="3.2"/><path d="M6.5 20c1.2-2.4 3-3.6 5.5-3.6s4.3 1.2 5.5 3.6"/></svg></div>
+          </div>
+          <div class="grid" id="grid"></div>
+        </section>
+      </div>
+      <div class="tabbar">
+        <i class="hl"></i>
+        <button class="on" data-tab="home" title="홈"><svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-7H9v7H3z"/></svg></button>
+        <button title="릴스"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M10 9l5 3-5 3z"/></svg></button>
+        <button title="메시지"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><i class="rd"></i></button>
+        <button title="검색"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+        <button data-tab="prof" title="프로필"><span class="me"><span class="av avbox" data-av style="font-size:13px"></span></span><i class="rd"></i></button>
+      </div>
+      <div class="dropHint">놓으면 게시돼요</div>
+      <div class="splash" id="splash"><img class="applogo" src="applogo.png" alt="yinsta"><div class="from">from<b>y.</b></div></div>
+    </div>
+  </div>
+
+  <!-- PC(인스타 웹) 화면 -->
+  <div class="browser" id="browser">
+    <div class="tabs" data-drag><button class="wl txt" id="btnPhone" title="휴대폰 화면으로"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.5 18h3"/></svg>모바일 버전</button><button class="wl" title="탭 검색"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><div class="tab"><i class="fav" style="background:#03c75a">N</i><span>NAVER</span><i class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></i></div><div class="tab"><i class="fav" style="background:#ff0000"><svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:#fff;stroke:none"><path d="M8 5v14l11-7z"/></svg></i><span>(135) 오늘은 마감 촬영 정리</span><i class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></i></div><div class="tab on"><i class="c1"></i><i class="c2"></i><i class="fav" style="background:linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)"><svg viewBox="0 0 16 16" style="width:12px;height:12px"><rect x="2.2" y="2.2" width="11.6" height="11.6" rx="3.3" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="8" cy="8" r="2.6" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="11.4" cy="4.6" r=".9" fill="#fff" stroke="none"/></svg></i><span>Instagram</span><i class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></i></div><button class="newtab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="gem"><i></i>Gemini에게 물어보기</div></div>
+    <div class="tool" data-drag><button><svg viewBox="0 0 24 24"><path d="M20 12H5"/><path d="m11 18-6-6 6-6"/></svg></button><button class="dis"><svg viewBox="0 0 24 24"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg></button><button><svg viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 4v5h-5"/></svg></button><div class="addr" data-nodrag><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span class="url">instagram.com/<span data-handle></span>/</span><i class="ib" title="앱 설치"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 8v5"/><path d="m9.5 10.5 2.5 2.5 2.5-2.5"/></svg></i><i class="ib star" title="북마크"><svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="m12 2.5 2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.5l-6 3.3 1.3-6.7-5-4.6 6.8-.8z"/></svg></i></div><span class="me" data-initial>보</span><div class="upd">새로운 Chrome 사용 가능<svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><circle cx="12" cy="5.5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18.5" r="1.6"/></svg></div></div>
+    <div class="bm" data-drag><span class="grp">업무</span><span class="apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg></span><i class="sep"></i><span><i style="background:#03c75a">N</i>NAVER</span><span><i style="background:#ff0000"><svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:#fff;stroke:none"><path d="M8 5v14l11-7z"/></svg></i>YouTube</span><span><i class="fav" style="background:linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)"><svg viewBox="0 0 16 16" style="width:12px;height:12px"><rect x="2.2" y="2.2" width="11.6" height="11.6" rx="3.3" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="8" cy="8" r="2.6" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="11.4" cy="4.6" r=".9" fill="#fff" stroke="none"/></svg></i>Instagram</span><span><i style="background:#8a7f78;border-radius:50%"></i>Retouch Like Me V...</span><span><i class="fo"></i>1010 테스트 촬영 레...</span><span><i style="background:#e4332c;border-radius:50%;font-size:7px">C</i>쿠팡</span></div>
+  <div class="pc" id="pc">
+    <nav class="pcnav">
+      <div class="pclogo"><span class="word">yinsta</span><svg class="glyph" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r=".9" fill="currentColor" stroke="none"/></svg></div>
+      <div class="sp top"></div>
+      <button data-tab="home" class="on" title="홈"><svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-7H9v7H3z"/></svg><span class="lb">홈</span></button>
+      <button title="릴스"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M10 9l5 3-5 3z"/></svg><span class="lb">릴스</span></button>
+      <button title="메시지"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><span class="lb">메시지</span><i class="badge">1</i></button>
+      <button title="검색"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="lb">검색</span></button>
+      <button title="알림"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg><span class="lb">알림</span><i class="dot"></i></button>
+      <button data-add title="만들기"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="lb">만들기</span></button>
+      <button title="대시보드"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg><span class="lb">대시보드</span></button>
+      <button data-tab="prof" title="프로필"><span class="av avbox pcme" data-av></span><span class="lb">프로필</span></button>
+      <div class="sp"></div>
+      <button title="더 보기"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="lb">더 보기</span></button>
+      <button title="Meta의 다른 서비스"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="7" height="7" rx="2"/><rect x="13" y="3" width="7" height="7" rx="2"/><rect x="4" y="14" width="7" height="7" rx="2"/><rect x="13" y="14" width="7" height="7" rx="2"/></svg><span class="lb">Meta의 다른 서비스</span></button>
+    </nav>
+    <main class="pcmain">
+      <section class="pcview on" id="pc-home">
+        <div class="pccenter"><div class="stories" id="pcstories"></div><div class="feed" id="pcfeed"></div></div>
+        <aside class="pcside">
+          <div class="merow"><span class="av avbox" data-av></span><div><b data-handle></b><span data-name></span></div><a>전환</a></div>
+          <div class="sug"><span>회원님을 위한 추천</span><a>모두 보기</a></div>
+          <div id="pcsugs"></div>
+          <div class="foot">소개 · 도움말 · 홍보 센터 · API · 채용 정보 ·<br>개인정보처리방침 · 약관 · 위치 · 언어 · Meta Verified<b>© 2026 yinsta from y.</b></div>
+        </aside>
+      </section>
+      <section class="pcview" id="pc-prof">
+        <header class="pchead">
+          <div class="avcol"><div class="pring" data-ring title="누르면 스토리 본/안 본 전환 · 사진을 끌어다 놓으면 프로필 사진"><div class="gap"><div class="av avbox" data-av></div></div></div></div>
+          <div class="pcinfo">
+            <div class="pcrow1"><h2 data-handle></h2><button data-edit>프로필 편집</button><button>보관된 스토리 보기</button><button class="gear gearbtn" data-gear title="설정 패널"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+            <div class="pcrow2"><span>게시물 <b data-posts>0</b></span><span>팔로워 <b data-followers></b></span><span>팔로잉 <b data-following></b></span></div>
+            <div class="pcrow3"><b data-name></b><div data-bio></div></div>
+          </div>
+        </header>
+        <div class="pctabs"><div class="on">게시물</div><div>릴스</div><div>태그됨</div></div>
+        <div class="grid pcgrid" id="pcgrid"></div>
+      </section>
+      <div class="pcmsg"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><i>1</i></span>메시지<span class="av avbox" data-av></span></div>
+    </main>
+    <div class="sb"><i id="pcsb"></i></div>
+    <div class="dropHint">놓으면 게시돼요</div>
+  </div></div>
+
+  <div class="strip bot"><button id="btnExpand" title="길게 펼치기 / 접기"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button></div>
+
+  <!-- 창들 -->
+  <div class="overlay confirm" id="confirm"><div class="box"><p id="confirmMsg">삭제할까요?</p><button class="red" id="confirmYes">삭제</button><button id="confirmNo">취소</button></div></div>
+  <div class="overlay sheet" id="sheet">
+    <div class="box">
+      <div class="bar"><button id="shCancel">취소</button><span>프로필 편집</span><button class="ok" id="shDone">완료</button></div>
+      <div class="avwrap">
+        <div class="av avbox" id="shAvatar"></div>
+        <div class="zoom"><span>축소</span><input type="range" id="shZoom" min="1" max="3" step="0.02" value="1"><span>확대</span></div>
+        <button id="shAvatarBtn">사진 바꾸기</button>
+      </div>
+      <div class="f"><label>사용자 이름 (아이디)</label><input id="shHandle" spellcheck="false" autocomplete="off"></div>
+      <div class="f"><label>이름</label><input id="shName" spellcheck="false" autocomplete="off"></div>
+      <div class="f"><label>소개</label><textarea id="shBio" rows="3" spellcheck="false"></textarea></div>
+      <div class="two"><div class="f"><label>팔로워</label><input id="shFollowers" spellcheck="false" autocomplete="off"></div><div class="f"><label>팔로잉</label><input id="shFollowing" spellcheck="false" autocomplete="off"></div></div>
+    </div>
+  </div>
+  <div class="overlay sheet crop" id="crop">
+    <div class="box">
+      <div class="bar"><button id="crCancel">취소</button><span>사진 크기</span><button class="ok" id="crDone">완료</button></div>
+      <div class="frames"><div class="fr"><div class="fbox feed" data-crbox><img alt=""></div>피드</div><div class="fr"><div class="fbox cellbox" data-crbox><img alt=""></div>프로필 격자</div></div>
+      <p class="hint">사진을 끌어서 위치 · 슬라이더나 스크롤로 크기</p>
+      <div class="zoom"><span>축소</span><input type="range" id="crZoom" min="1" max="3" step="0.01" value="1"><span>확대</span></div>
+      <button class="reset" id="crReset">원래대로</button>
+    </div>
+  </div>
+  <div class="overlay shot" id="shot"><div class="box"><img id="shotImg" alt="캡처한 화면"><p>자동 복사가 되지 않았어요. '복사'를 다시 눌러 보거나, 그림을 오른쪽 클릭 → '이미지 복사' 하세요.</p><div class="bt"><button id="shotCopy" class="pri">복사</button><a id="shotSave" download="yinsta_화면.png">PNG 저장</a><button id="shotClose">닫기</button></div></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- 오른쪽 패널 열 -->
+<div class="pcol" id="pcol">
+  <aside class="panel" id="pSettings">
+    <div class="ph" data-drag><span>설정</span><button id="psClose" title="닫기">✕</button></div>
+    <div class="pb">
+      <div class="opt"><label>사진 비율</label><div class="seg" id="segRatio"><button data-v="ratio-45" class="on">4 : 5</button><button data-v="ratio-11">1 : 1</button></div></div>
+      <div class="opt app-only"><label><span>창 크기</span></label>
+        <div class="gauge"><span>작게</span><div class="sl"><input type="range" id="zoomRange" min="0" max="4" step="1" value="2" title="창 크기 (⌘− / ⌘0 / ⌘+)"><div class="ticks"><i></i><i></i><i></i><i></i><i></i></div></div><span>크게</span></div>
+      </div>
+      <div class="row2"><button class="pri" id="btnCapture" title="지금 화면을 그림으로 복사 (카톡 등에 붙여넣기)">Capture</button><button class="warn" id="btnClear" title="게시물을 피드에서 빼서 사진 소스로 돌려보냄">Clear feed</button></div>
+      <p class="note">게시물 <span class="count" id="cnt">0</span>장 · 사진은 이 맥 안에만 저장돼요.</p>
+    </div>
+  </aside>
+  <aside class="panel" id="pSources">
+    <div class="ph" data-drag><span>사진 소스 <span class="count" id="srcCnt" style="font-weight:400;color:var(--panel-muted);font-size:12px"></span></span><span></span></div>
+    <div class="pb">
+      <p class="note">사진을 끌어다 놓거나 Upload로 모아 두세요.<br>클릭하면 게시(✓), 다시 클릭하면 피드에서 빠져요.<br>격자의 원하는 자리로 끌어 놓으면 그 자리에,<br>홈의 스토리 줄에 놓으면 스토리로.<br>우클릭에 메뉴가 있어요.</p>
+      <div class="row2" id="srcRow"><button id="srcAdd">Upload</button><button class="warn" id="srcClear">Delete</button></div>
+      <div class="row2" id="srcSelRow" hidden><button id="srcAll">Select all</button><button class="warn" id="srcDelSel" disabled>Delete</button><button id="srcCancel">Cancel</button></div>
+      <div class="srcgrid" id="srcgrid"></div>
+    </div>
+  </aside>
+</div>
+
+<input type="file" id="file" accept="image/*" multiple>
+<input type="file" id="srcFile" accept="image/*" multiple>
+<input type="file" id="avatarFile" accept="image/*">
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const BASE_W=481, STAGE_H=968, PANEL_W=460, PANEL_H=924, PC_W=1120, PC_H=852, LEVELS=[0.8,0.9,1.0,1.1,1.2], MIN_Z=0.8, MAX_Z=1.2;   // 5단계, 기본 100%
+const phone=$('#phone'), srcGrid=$('#srcgrid');
+const APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.yinsta);
+const native = m => { if(APP) window.webkit.messageHandlers.yinsta.postMessage(m); };
+if(APP) document.documentElement.classList.add('app');
+
+let posts=[], sources=[], stories=[], expanded=false, pcMode=false, tab='home';
+const DEF_STORIES=['soyeon_k','minjae.film','haeun.photo','jihoon__','yuri.records','dawn_studio'];
+let settings={ratio:'ratio-45', name:'보통사진관', handle:'yinsta.studio', bio:'프로필 · 자연광 · 배우 프로필 사진\n서울 · 예약은 DM', followers:'1,024', following:'312', avatarUrl:null, avatarZoom:1, myStory:'내 스토리', stories:[...DEF_STORIES], storySeen:false, panelSettings:false, zoom:1};
+const meta = p => ({id:p.id,order:p.order,caption:p.caption,liked:!!p.liked,likes:p.likes??null,time:p.time??null,w:p.w,h:p.h,srcId:p.srcId??null,cz:p.cz??1,cx:p.cx??50,cy:p.cy??50});
+const smeta = s => ({id:s.id,order:s.order,name:s.name||'',w:s.w,h:s.h,postedId:s.postedId??null});
+const tmeta = s => ({id:s.id,order:s.order,name:s.name||'',w:s.w,h:s.h});
+const newId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const fileURL=(kind,id)=>`yinsta://app/${kind}/${id}.jpg`;
+const FEED=[1440,1800], STORY=[1080,1920], THUMB=[480,480], AVATAR=[600,600];   // 인스타 규격: 피드 가로 1440 (4:5 = 1440×1800)
+
+/* ---------- 저장소 ---------- */
+let store; const saved={};
+window.__yinstaSaved=k=>{ const r=saved[k]; delete saved[k]; r&&r(); };
+if(APP){
+  store={
+    load(){ return new Promise(res=>{
+      window.__yinstaPost=p=>{ posts.push({...p,url:fileURL('posts',p.id)}); };
+      window.__yinstaSource=p=>{ sources.push({...p,url:fileURL('sources',p.id),thumb:fileURL('sources',p.id+'_t')}); };
+      window.__yinstaStory=p=>{ stories.push({...p,url:fileURL('stories',p.id)}); };
+      window.__yinstaLoaded=s=>{ if(s) settings={...settings,...s}; res(); };
+      native({op:'load'}); }); },
+    putImage(kind,id,img){ return new Promise(res=>{ saved[kind+'/'+id]=res; native({op:'putImage',kind,id,data:img.data}); }); },
+    savePost(p){ native({op:'savePost',post:meta(p)}); },
+    delPost(id){ native({op:'delPost',id}); },
+    saveSource(s){ native({op:'saveSource',source:smeta(s)}); },
+    delSource(id){ native({op:'delSource',id}); },
+    saveStory(s){ native({op:'saveStory',story:tmeta(s)}); },
+    delStory(id){ native({op:'delStory',id}); },
+    saveSettings(){ native({op:'saveSettings',settings:{...settings}}); },
+  };
+} else {
+  let db;
+  const openDB=()=>new Promise(res=>{ if(!('indexedDB' in window)) return res(null); const r=indexedDB.open('yinsta',3);
+    r.onupgradeneeded=()=>{ const d=r.result; for(const n of ['posts','sources','stories']) if(!d.objectStoreNames.contains(n)) d.createObjectStore(n,{keyPath:'id'}); if(!d.objectStoreNames.contains('settings')) d.createObjectStore('settings'); };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); });
+  const tx=(s,mode,fn)=>new Promise((res,rej)=>{ if(!db) return res(); const t=db.transaction(s,mode); const out=fn(t.objectStore(s)); t.oncomplete=()=>res(out&&out.result); t.onerror=()=>rej(t.error); });
+  const getAll=s=>new Promise(res=>{ if(!db) return res([]); const r=db.transaction(s).objectStore(s).getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>res([]); });
+  store={
+    async load(){ db=await openDB(); if(!db) return;
+      posts=(await getAll('posts')).map(p=>({...p,url:URL.createObjectURL(p.blob)}));
+      sources=(await getAll('sources')).map(p=>({...p,url:URL.createObjectURL(p.blob),thumb:p.tblob?URL.createObjectURL(p.tblob):URL.createObjectURL(p.blob)}));
+      stories=(await getAll('stories')).map(p=>({...p,url:URL.createObjectURL(p.blob)}));
+      const st=(await getAll('settings'))[0]; if(st){ settings={...settings,...st}; settings.avatarUrl=st.avatar?URL.createObjectURL(st.avatar):null; } },
+    putImage(){},
+    savePost(p){ return tx('posts','readwrite',s=>s.put({...meta(p),blob:p.blob})).catch(()=>{}); },
+    delPost(id){ return tx('posts','readwrite',s=>s.delete(id)).catch(()=>{}); },
+    saveSource(p){ return tx('sources','readwrite',s=>s.put({...smeta(p),blob:p.blob,tblob:p.tblob||null})).catch(()=>{}); },
+    delSource(id){ return tx('sources','readwrite',s=>s.delete(id)).catch(()=>{}); },
+    saveStory(p){ return tx('stories','readwrite',s=>s.put({...tmeta(p),blob:p.blob})).catch(()=>{}); },
+    delStory(id){ return tx('stories','readwrite',s=>s.delete(id)).catch(()=>{}); },
+    saveSettings(){ const {avatarUrl,avatar,...rest}=settings; return tx('settings','readwrite',s=>s.put({...rest,avatar:settings.avatar||null},'main')).catch(()=>{}); },
+  };
+}
+
+/* ---------- 사진 읽기 ---------- */
+async function decode(src){   // File/Blob 또는 주소 → 그림
+  const blob=src instanceof Blob?src:await (await fetch(src)).blob();
+  try{ return await createImageBitmap(blob,{imageOrientation:'from-image'}); }
+  catch(e){ return await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=URL.createObjectURL(blob); }); }
+}
+async function resized(src,[maxW,maxH],q=0.9){   // 맞춤 크기 JPEG (앱: data, 브라우저: blob+url)
+  const bmp=await decode(src); const k=Math.min(1,maxW/bmp.width,maxH/bmp.height);
+  const c=document.createElement('canvas'); c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k);
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height); if(bmp.close) bmp.close();
+  if(APP) return {data:c.toDataURL('image/jpeg',q),w:c.width,h:c.height};
+  const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',q)); return {blob,url:URL.createObjectURL(blob),w:c.width,h:c.height};
+}
+const rawData=f=>new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+async function keep(kind,id,img,obj,key='url'){   // 사진 파일 보관 → obj[key]에 주소
+  if(APP){ await store.putImage(kind,id,img); obj[key]=fileURL(kind,id); }
+  else { obj[key==='thumb'?'tblob':'blob']=img.blob; obj[key]=img.url; }
+}
+const isImg=f=>f.type.startsWith('image/')||/\.(jpe?g|png|heic|heif|webp|tiff?|gif)$/i.test(f.name);
+const sortFiles=files=>[...files].filter(isImg).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+const nextOrder=()=>posts.length?Math.max(...posts.map(p=>p.order))+1:1;
+const nextSrcOrder=()=>sources.length?Math.max(...sources.map(s=>s.order))+1:1;
+async function addFiles(files){
+  const list=sortFiles(files); if(!list.length){ toast('사진 파일이 아니에요'); return; }
+  let n=0;
+  for(const f of list){ try{ const img=await resized(f,FEED); const p={id:newId(),order:nextOrder(),caption:'',liked:false,likes:null,time:null,srcId:null,name:f.name.replace(/\.[^.]+$/,''),w:img.w,h:img.h}; await keep('posts',p.id,img,p); posts.push(p); await store.savePost(p); n++; render(); }catch(e){ console.warn(e); } }
+  if(n) note(`${n}장 게시했어요`); else toast('읽을 수 없는 사진이에요');
+}
+async function addSourceFiles(files){
+  const list=sortFiles(files); if(!list.length){ toast('사진 파일이 아니에요'); return; }
+  let n=0;
+  for(const f of list){ try{   // 소스는 원본 그대로 + 패널용 작은 썸네일
+      const th=await resized(f,THUMB,0.85); const s={id:newId(),order:nextSrcOrder(),name:f.name.replace(/\.[^.]+$/,''),postedId:null,w:0,h:0};
+      await keep('sources',s.id,APP?{data:await rawData(f)}:{blob:f,url:URL.createObjectURL(f)},s); await keep('sources',s.id+'_t',th,s,'thumb');
+      sources.push(s); await store.saveSource(s); n++; renderSources(); }catch(e){ console.warn(e); } }
+  if(n) note(`소스에 ${n}장 넣었어요`); else toast('읽을 수 없는 사진이에요');
+}
+const nextStoryOrder=()=>stories.length?Math.max(...stories.map(s=>s.order))+1:1;
+async function addStoryFiles(files){
+  const list=sortFiles(files); if(!list.length){ toast('사진 파일이 아니에요'); return; }
+  let n=0;
+  for(const f of list){ try{ const img=await resized(f,STORY); const st={id:newId(),order:nextStoryOrder(),name:DEF_STORIES[stories.length%DEF_STORIES.length],w:img.w,h:img.h}; await keep('stories',st.id,img,st); stories.push(st); await store.saveStory(st); n++; }catch(e){ console.warn(e); } }
+  render(); if(n) note(`스토리 ${n}개 올렸어요`); else toast('읽을 수 없는 사진이에요');
+}
+async function addStoryFromSource(src){
+  const img=await resized(src.blob||src.url,STORY); const st={id:newId(),order:nextStoryOrder(),name:src.name||DEF_STORIES[stories.length%DEF_STORIES.length],w:img.w,h:img.h};
+  await keep('stories',st.id,img,st); stories.push(st); await store.saveStory(st); render(); note('스토리에 올렸어요');
+}
+async function postFromSource(src, displayIndex=null){
+  const img=await resized(src.blob||src.url,FEED);   // 소스 원본 → 피드 규격
+  const p={id:newId(),order:nextOrder(),caption:'',liked:false,likes:null,time:null,srcId:src.id,w:img.w,h:img.h};
+  await keep('posts',p.id,img,p); posts.push(p);
+  if(displayIndex!=null) placeAt(p,displayIndex); else await store.savePost(p);
+  src.postedId=p.id; store.saveSource(src);
+}
+function placeAt(p,displayIndex){ const shown=ordered().filter(x=>x.id!==p.id); shown.splice(displayIndex,0,p); [...shown].reverse().forEach((x,i)=>{ if(x.order!==i+1||x===p){ x.order=i+1; store.savePost(x); } }); }
+// 피드에서 빼기: 소스에서 온 사진은 ✓만 풀리고, 직접 넣은 사진은 소스로 옮겨 보관
+async function unpost(p){
+  const src=sources.find(s=>s.id===p.srcId||s.postedId===p.id);
+  if(src){ src.postedId=null; store.saveSource(src); }
+  else { const s={id:newId(),order:nextSrcOrder(),name:p.name||'게시물',postedId:null,w:p.w,h:p.h};
+    await keep('sources',s.id,APP?{data:await rawData(await (await fetch(p.url)).blob())}:{blob:p.blob,url:p.url},s); await keep('sources',s.id+'_t',await resized(p.blob||p.url,THUMB,0.85),s,'thumb'); sources.push(s); await store.saveSource(s); }
+  posts=posts.filter(x=>x.id!==p.id); await store.delPost(p.id);
+}
+
+/* ---------- 그리기 ---------- */
+const cropCSS=p=>{ const z=p.cz||1, x=p.cx??50, y=p.cy??50; return (z===1&&x===50&&y===50)?'':`object-position:${x}% ${y}%;transform:scale(${z});transform-origin:${x}% ${y}%`; };
+const ordered=()=>[...posts].sort((x,y)=>y.order-x.order);
+const initial=()=>(settings.name||'y').trim().slice(0,1).toUpperCase();
+const avInner=()=>settings.avatarUrl?`<img src="${settings.avatarUrl}" alt="" style="transform:scale(${settings.avatarZoom||1})">`:initial();
+const ICON={
+ heart:'<svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg>',
+ cmt:'<svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5A8.5 8.5 0 1 1 21 12z"/></svg>',
+ send:'<svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
+ save:'<svg viewBox="0 0 24 24"><path d="M19 21 12 16l-7 5V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1z"/></svg>',
+ more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>',
+ cam:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'
+};
+const fmtLikes=i=>{ const base=[128,212,97,305,164,251,88,190]; return (base[i%base.length]+(i*13)%40).toLocaleString('ko-KR'); };
+const timeText=i=>i===0?'방금':i<24?`${i}시간 전`:`${Math.floor(i/24)}일 전`;
+// 한국 인스타처럼: 1만 이상 '만' (1.2만 · 12.3만 · 123만), 1억 이상 '억'. 숫자가 아니면 그대로
+function fmtCount(v){ const t=String(v??'').trim(); const n=Number(t.replace(/,/g,'')); if(!t||isNaN(n)) return t;
+  const trim=x=>x.toFixed(1).replace(/\.0$/,'');
+  if(n>=1e8) return trim(Math.floor(n/1e7)/10)+'억'; if(n>=1e6) return Math.floor(n/1e4)+'만'; if(n>=1e4) return trim(Math.floor(n/1e3)/10)+'만'; return n.toLocaleString('ko-KR'); }
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const storyName=i=>settings.stories[i]??DEF_STORIES[i]??`user_${i+1}`;
+const storiesHTML=()=>`<div class="story"><div class="ring plain"><div class="in"><span class="av">${avInner()}</span></div></div><div class="nm">내 스토리</div></div>`+
+  [...stories].sort((a,b)=>a.order-b.order).map(st=>`<div class="story" data-story-id="${st.id}" title="우클릭 = 삭제"><div class="ring"><div class="in"><img src="${st.url}" alt=""></div></div><div class="nm" contenteditable="true" spellcheck="false" data-sname="${st.id}">${esc(st.name)}</div></div>`).join('');
+const feedHTML=list=>!list.length?`<div class="empty"><div class="cam">${ICON.cam}</div><h3>사진 공유</h3>사진을 넣으면 여기에 피드처럼 쌓여요.<br>프로필의 ＋를 누르거나 창에 끌어다 놓으세요.</div>`:list.map((p,i)=>`
+  <article class="post" data-id="${p.id}">
+    <div class="head"><span class="av avbox">${avInner()}</span><span class="name" data-t="${esc(p.time??timeText(i))}">${esc(settings.handle)}</span><button class="more">${ICON.more}</button></div>
+    <div class="media"><img src="${p.url}" alt="" draggable="false" style="${cropCSS(p)}"></div>
+    <div class="acts"><button class="heart ${p.liked?'on':''}" data-like="${p.id}">${ICON.heart}</button><button>${ICON.cmt}</button><button title="리포스트"><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button><button>${ICON.send}</button><button class="save">${ICON.save}</button></div>
+    <div class="likes">좋아요 <span contenteditable="true" spellcheck="false" data-likes="${p.id}" title="눌러서 고치기 (1만 이상은 만으로 보여요)">${esc(fmtCount(p.likes??fmtLikes(p.order)))}</span>개</div>
+    <div class="cap ${p.caption?'':'addcap'}"><b>${esc(settings.handle)}</b><span class="txt" contenteditable="true" spellcheck="false" data-cap="${p.id}">${esc(p.caption)}</span></div>
+    <div><span class="time" contenteditable="true" spellcheck="false" data-time="${p.id}">${esc(p.time??timeText(i))}</span></div>
+  </article>`).join('');
+const gridHTML=list=>list.map(p=>`<div class="cell" draggable="true" data-id="${p.id}" title="클릭 = 사진 크기 · 끌기 = 순서"><img src="${p.url}" alt="" style="${cropCSS(p)}"><button class="del" data-del="${p.id}" title="피드에서 빼기">✕</button></div>`).join('')
+  || `<div class="empty" style="grid-column:1/-1"><div class="cam">${ICON.cam}</div><h3>아직 게시물이 없어요</h3>사진을 넣으면 3열 격자로 보여요.</div>`;
+
+function render(){
+  document.body.className=settings.ratio+(document.body.classList.contains('dragging')?' dragging':'');
+  const list=ordered();
+  $('#stories').innerHTML=storiesHTML(); $('#feed').innerHTML=feedHTML(list); $('#grid').innerHTML=gridHTML(list);
+  if(pcMode){ $('#pcstories').innerHTML=storiesHTML(); $('#pcfeed').innerHTML=feedHTML(list); $('#pcgrid').innerHTML=gridHTML(list);
+    $('#pcsugs').innerHTML=list.slice(0,5).map((p,i)=>`<div class="srow"><span class="ph"><img src="${p.url}" alt=""></span><div><b>${esc(storyName(i))}</b><span>회원님을 위한 추천</span></div><a>팔로우</a></div>`).join('')||`<p class="note" style="color:var(--phone-muted)">사진을 넣으면 추천이 보여요.</p>`; }
+  $$('[data-posts]').forEach(e=>e.textContent=posts.length); $('#cnt').textContent=posts.length;
+  $('#handleTop').textContent=settings.handle;
+  $$('[data-handle]').forEach(e=>e.textContent=settings.handle); $$('[data-initial]').forEach(e=>e.textContent=(settings.name||'y').trim()[0]||'y'); $$('[data-name]').forEach(e=>e.textContent=settings.name);
+  $$('[data-bio]').forEach(e=>e.textContent=settings.bio||''); $$('[data-followers]').forEach(e=>e.textContent=fmtCount(settings.followers)); $$('[data-following]').forEach(e=>e.textContent=fmtCount(settings.following));
+  $$('[data-av]').forEach(e=>e.innerHTML=avInner());
+  $$('[data-ring]').forEach(e=>e.classList.toggle('seen',!!settings.storySeen));
+  renderSources();
+}
+function renderSources(){
+  const list=[...sources].sort((a,b)=>a.order-b.order);
+  $('#srcCnt').textContent=list.length?`${list.length}장`:'';
+  srcGrid.innerHTML=list.map(s=>`<div class="src ${posts.some(p=>p.id===s.postedId)?'posted':''} ${selSrc.has(s.id)?'sel':''}" draggable="${selMode?'false':'true'}" data-src="${s.id}" title="${esc(s.name)} · 클릭 = 게시 / 다시 클릭 = 피드에서 빼기 · 격자로 끌면 원하는 자리에"><img src="${s.thumb||s.url}" data-o="${s.url}" onerror="if(this.src!==this.dataset.o)this.src=this.dataset.o" alt=""><span class="ok">✓</span><span class="ck">✓</span><span class="nm">${esc(s.name)}</span></div>`).join('')
+    || `<div class="srcempty" style="grid-column:1/-1">아직 비어 있어요.<br>사진을 여기에 끌어다 놓거나<br>Upload을 누르세요.</div>`;
+}
+function syncSeg(){ $$('#segRatio button').forEach(b=>b.classList.toggle('on',b.dataset.v===settings.ratio)); }
+function moveHl(){ const b=$('.tabbar [data-tab].on'), hl=$('.tabbar .hl'); if(!b||!hl) return; hl.style.left=(b.offsetLeft+b.offsetWidth/2-30)+'px'; hl.classList.add('on'); }
+function setTab(t){ tab=t; phone.dataset.tab=t; $$('.tabbar [data-tab]').forEach(x=>x.classList.toggle('on',x.dataset.tab===t)); moveHl(); $$('.pcnav [data-tab]').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
+  $('#v-home').classList.toggle('on',t==='home'); $('#v-prof').classList.toggle('on',t==='prof'); $('#pc-home').classList.toggle('on',t==='home'); $('#pc-prof').classList.toggle('on',t==='prof'); $('#screen').scrollTop=0; $('.pcmain').scrollTop=0; }
+
+/* ---------- 패널 · 펼침 · PC · 창 ---------- */
+function applyPanels(){   // 톱니 하나로 왼쪽 열(설정+사진 소스) 통째로 켜고 끔
+  const on=!!settings.panelSettings;
+  $('#pcol').classList.toggle('on',on); $('#pSettings').classList.toggle('on',on); $('#pSources').classList.toggle('on',on);
+  $$('[data-gear]').forEach(b=>b.classList.toggle('on',on)); $('#btnPanels').classList.toggle('on',on);
+}
+function mode(){ return pcMode?'pc':expanded?'expanded':'normal'; }
+function sendLayout(){ native({op:'layout',panels:settings.panelSettings?PANEL_W:0,mode:mode()}); }
+function togglePanel(){ settings.panelSettings=!settings.panelSettings; store.saveSettings(); applyPanels(); sendLayout(); }
+$$('[data-gear]').forEach(b=>b.onclick=togglePanel); $('#psClose').onclick=togglePanel; $('#btnPanels').onclick=togglePanel;
+// 휴대폰 배율 (무대만 zoom, 패널은 그대로)
+const nearest=z=>LEVELS.reduce((a,b)=>Math.abs(b-z)<Math.abs(a-z)?b:a);
+// z = 실제 배율(단계 × 디스플레이 계수), level = 슬라이더 단계. 앱에서는 네이티브가 둘 다 알려줌(브라우저에서는 같음)
+function applyZoom(z,level){ level=nearest(level??z); settings.zoom=level; document.documentElement.style.setProperty('--z',z); const i=LEVELS.indexOf(level), r=$('#zoomRange'); r.value=i; r.style.setProperty('--p',(i/(LEVELS.length-1)*100)+'%'); }
+window.__yinstaZoom=(z,pz,level)=>{ applyZoom(z,level); if(pz) document.documentElement.style.setProperty('--pz',pz); };
+(function(){ const m=$('.pcmain'), t=$('#pcsb'); if(!m||!t) return; const upd=()=>{ const H=m.clientHeight, S=m.scrollHeight, track=H-4; const h=Math.max(30, S? track*H/S : track); t.style.height=h+'px'; t.style.top=(2+(S>H? (track-h)*m.scrollTop/(S-H):0))+'px'; }; m.addEventListener('scroll',upd); new ResizeObserver(upd).observe(m); window.__pcsbUpd=upd; })();   // 가짜 세로 스크롤바
+window.__yinstaPC=(w,h)=>{ const r=document.documentElement.style; r.setProperty('--pcw',w+'px'); r.setProperty('--pch',h+'px'); };   // PC 브라우저 창 크기(커서로 조절, 배율과 별개)
+$('#btnExpand').onclick=()=>{ expanded=!expanded; document.documentElement.classList.toggle('expanded',expanded); sendLayout(); };
+$('#btnPC').title='PC(웹) 화면으로 보기 / 휴대폰으로';
+$('#btnPhone').onclick=()=>$('#btnPC').click();
+$('#btnPC').onclick=()=>{ pcMode=!pcMode; if(pcMode){ expanded=false; document.documentElement.classList.remove('expanded'); } document.documentElement.classList.toggle('pcmode',pcMode); render(); sendLayout(); };
+$$('.browser .tabs,.browser .tool,.browser .bm').forEach(el=>el.addEventListener('dblclick',e=>{ if(!APP||e.target.closest('button,[data-nodrag],.tab')) return; native({op:'zoomWindow'}); }));   // 크롬처럼 더블클릭 = 화면 가득 ↔ 원래 크기
+$$('[data-drag]').forEach(h=>h.addEventListener('mousedown',e=>{ if(!APP||e.target.closest('button,[data-nodrag]')) return; e.preventDefault(); native({op:'drag'}); }));   // 크롬처럼 탭 줄·도구 줄을 잡고 창 옮기기
+$('#device').addEventListener('mousedown',e=>{ if(!APP) return; if(e.target.closest('.phone')||e.target.closest('.sbtn')) return; e.preventDefault(); native({op:'drag'}); });
+$('#pwr').onclick=()=>{ if(APP) ask('yinsta를 종료할까요?',()=>native({op:'quit'}),'종료'); };
+// 창 크기 게이지 (1.0 근처는 스냅) · 버튼
+function requestZoom(z){ z=nearest(z); if(APP) native({op:'zoom',z}); else { applyZoom(z); store.saveSettings(); } }
+$('#zoomRange').addEventListener('input',e=>{ const i=+e.target.value; e.target.style.setProperty('--p',(i/(LEVELS.length-1)*100)+'%'); requestZoom(LEVELS[i]); });
+
+/* ---------- 상호작용 ---------- */
+$$('[data-tab]').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+$$('[data-add]').forEach(b=>b.onclick=()=>$('#file').click());
+$('#file').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
+$('#srcAdd').onclick=()=>$('#srcFile').click();
+$('#srcFile').onchange=e=>{ addSourceFiles(e.target.files); e.target.value=''; };
+$('#shAvatarBtn').onclick=()=>$('#avatarFile').click();
+$('#avatarFile').onchange=async e=>{ await setAvatar(e.target.files[0]); e.target.value=''; };
+async function setAvatar(f){ if(!f) return; const img=await resized(f,AVATAR,0.9); settings.avatarUrl=APP?img.data:img.url; settings.avatar=img.blob||null; settings.avatarZoom=1; $('#shZoom').value=1; store.saveSettings(); render(); $('#shAvatar').innerHTML=avInner(); note('프로필 사진을 바꿨어요'); }
+$$('[data-ring]').forEach(r=>r.onclick=()=>{ settings.storySeen=!settings.storySeen; store.saveSettings(); render(); });
+$$('[data-share]').forEach(b=>b.onclick=shareScreen);
+
+// 파일 끌어다 놓기: 프로필 고리 → 프로필 사진 / 소스 패널 → 소스 / 그 밖 → 게시
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{ if([...e.dataTransfer.types].includes('Files')){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; const onSrc=e.target.closest('#pSources'), ring=e.target.closest('[data-ring]'), row=e.target.closest('.stories'); document.body.classList.toggle('dragging',!onSrc&&!ring&&!row); $('#pSources').classList.toggle('hot',!!onSrc); $$('[data-ring]').forEach(r=>r.classList.toggle('hot',r===ring)); $$('.stories').forEach(r=>r.classList.toggle('hot',r===row)); } }));
+document.addEventListener('dragleave',e=>{ if(e.relatedTarget===null||e.clientX<=0||e.clientY<=0){ document.body.classList.remove('dragging'); $('#pSources').classList.remove('hot'); $$('[data-ring],.stories').forEach(r=>r.classList.remove('hot')); } });
+document.addEventListener('drop',e=>{
+  document.body.classList.remove('dragging'); $('#pSources').classList.remove('hot'); $$('[data-ring],.stories').forEach(r=>r.classList.remove('hot'));
+  if(!e.dataTransfer.files.length) return; e.preventDefault();
+  if(e.target.closest('.stories')) addStoryFiles(e.dataTransfer.files);
+  else if(e.target.closest('[data-ring]')){ const f=[...e.dataTransfer.files].find(isImg); if(f) setAvatar(f); else toast('사진 파일이 아니에요'); }
+  else if(e.target.closest('#pSources')) addSourceFiles(e.dataTransfer.files);
+  else addFiles(e.dataTransfer.files);
+});
+
+// 피드·스토리 (폰과 PC 둘 다, 위임)
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-like]'); if(!b) return; const p=posts.find(x=>x.id===b.dataset.like); p.liked=!p.liked; store.savePost(p); $$(`[data-like="${p.id}"]`).forEach(x=>x.classList.toggle('on',p.liked)); });
+document.addEventListener('dblclick',e=>{ const a=e.target.closest('.post .media'); if(!a) return; const p=posts.find(x=>x.id===a.parentElement.dataset.id); if(p&&!p.liked){ p.liked=true; store.savePost(p); $$(`[data-like="${p.id}"]`).forEach(x=>x.classList.add('on')); } });
+document.addEventListener('input',e=>{ const t=e.target; if(!(t instanceof HTMLElement)) return;
+  if(t.dataset.sname){ const st=stories.find(x=>x.id===t.dataset.sname); if(st){ st.name=t.innerText; store.saveStory(st); } return; }
+  const key=t.dataset.cap?'caption':t.dataset.likes?'likes':t.dataset.time?'time':null; if(!key) return;
+  const p=posts.find(x=>x.id===(t.dataset.cap||t.dataset.likes||t.dataset.time)); if(p){ p[key]=t.innerText; store.savePost(p); if(key==='time') $$(`.post[data-id="${p.id}"] .name`).forEach(n=>n.dataset.t=t.innerText); } });   // PC 머리글의 시간도 같이
+document.addEventListener('keydown',e=>{ const t=e.target; if(e.key==='Enter'&&t instanceof HTMLElement&&(t.dataset.likes||t.dataset.time||t.dataset.sname)){ e.preventDefault(); t.blur(); } });
+document.addEventListener('focusin',e=>{ const t=e.target; if(t instanceof HTMLElement&&t.dataset.likes){ const p=posts.find(x=>x.id===t.dataset.likes); if(p&&p.likes!=null) t.textContent=p.likes; } });   // 편집 땐 원래 숫자
+document.addEventListener('focusout',e=>{ const t=e.target; if(t instanceof HTMLElement&&t.dataset.likes){ const p=posts.find(x=>x.id===t.dataset.likes); if(p) t.textContent=fmtCount(p.likes??fmtLikes(p.order)); } });
+
+// 피드에서 빼기 (한 장 · 전부) → 소스로
+document.addEventListener('click',async e=>{ const b=e.target.closest('[data-del]'); if(!b) return; const p=posts.find(x=>x.id===b.dataset.del); if(!p) return; await unpost(p); renumber(); render(); note('피드에서 뺐어요 · 사진 소스에 있어요'); });
+$('#btnClear').onclick=()=>{ if(!posts.length){ toast('게시물이 없어요'); return; } ask(`게시물 ${posts.length}장을 피드에서 뺄까요?\n사진은 모두 사진 소스로 돌아가요.`,async()=>{ for(const p of [...posts]) await unpost(p); if(!settings.panelSettings){ settings.panelSettings=true; store.saveSettings(); applyPanels(); sendLayout(); } render(); note('피드를 비웠어요 · 사진은 소스에 있어요'); },'Clear'); };
+function renumber(){ [...posts].sort((a,b)=>a.order-b.order).forEach((p,i)=>{ if(p.order!==i+1){p.order=i+1; store.savePost(p);} }); }
+
+// 소스: 빼기 · 전부 게시 · 비우기 · 두 번 클릭 게시
+srcGrid.addEventListener('click',async e=>{ const c=e.target.closest('[data-src]'); if(!c) return; const s=sources.find(x=>x.id===c.dataset.src);
+  if(selMode){ if(selSrc.has(s.id)) selSrc.delete(s.id); else selSrc.add(s.id); c.classList.toggle('sel',selSrc.has(s.id)); syncSel(); return; }   // 선택 모드: 고르기만
+  const p=posts.find(x=>x.id===s.postedId);
+  if(p){ await unpost(p); renumber(); render(); note('피드에서 뺐어요'); }   // 다시 누르면 피드에서 빠짐
+  else { await postFromSource(s); render(); note('맨 위에 게시했어요'); } });
+// 사진 소스 선택 모드: Delete → 썸네일을 눌러 고르고(Select all 가능) → Delete(경고창) / Cancel
+let selMode=false; const selSrc=new Set();
+function setSelMode(on){ selMode=on; if(!on) selSrc.clear(); $('#pSources').classList.toggle('sel',on); $('#srcRow').hidden=on; $('#srcSelRow').hidden=!on; renderSources(); syncSel(); }
+function syncSel(){ const n=selSrc.size, all=sources.length&&n===sources.length; $('#srcAll').textContent=all?'Deselect all':'Select all'; const d=$('#srcDelSel'); d.disabled=!n; d.innerHTML=n?`Delete <span class="cnt">${n}</span>`:'Delete'; }
+$('#srcClear').onclick=()=>{ if(!sources.length){ toast('소스가 비어 있어요'); return; } setSelMode(true); };
+$('#srcAll').onclick=()=>{ if(selSrc.size===sources.length) selSrc.clear(); else sources.forEach(s=>selSrc.add(s.id)); renderSources(); syncSel(); };
+$('#srcCancel').onclick=()=>setSelMode(false);
+$('#srcDelSel').onclick=()=>{ const n=selSrc.size; if(!n) return; ask(`선택한 ${n}장을 소스에서 지울까요?\n(피드에 게시된 사진은 그대로)`,()=>{ for(const id of selSrc) store.delSource(id); sources=sources.filter(s=>!selSrc.has(s.id)); setSelMode(false); note('소스에서 지웠어요'); },'Delete'); };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&selMode) setSelMode(false); });
+
+// 격자 끌어 순서 바꾸기 · 소스를 격자 자리로 끌어 게시 (폰·PC 격자 공통, 위임)
+let dragId=null, dragSrc=null;
+const gridOf=e=>e.target.closest('.grid');
+document.addEventListener('dragstart',e=>{ const c=e.target.closest('.cell'); if(c){ dragId=c.dataset.id; c.classList.add('ghost'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',dragId); return; }
+  const s=e.target.closest('.src'); if(s){ dragSrc=s.dataset.src; s.classList.add('ghost'); e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData('text/plain','source:'+dragSrc); } });
+document.addEventListener('dragend',()=>{ dragId=null; dragSrc=null; $$('.ghost,.over,.ins,.grid.hot,.stories.hot').forEach(x=>x.classList.remove('ghost','over','ins','hot')); });
+document.addEventListener('dragover',e=>{ if(!dragId&&!dragSrc) return; const g=gridOf(e);
+  if(g){ e.preventDefault(); e.dataTransfer.dropEffect=dragId?'move':'copy'; const c=e.target.closest('.cell'); $$('.over,.ins').forEach(x=>x.classList.remove('over','ins')); g.classList.toggle('hot',!!dragSrc&&!c); if(c&&c.dataset.id!==dragId) c.classList.add(dragId?'over':'ins'); }
+  else if(dragSrc&&(e.target.closest('#screen')||e.target.closest('.pcmain'))){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; const row=e.target.closest('.stories'); $$('.stories').forEach(r=>r.classList.toggle('hot',r===row)); } });
+document.addEventListener('drop',async e=>{
+  if(!dragId&&!dragSrc) return;
+  const g=gridOf(e); const c=e.target.closest('.cell'); const shown=ordered();
+  if(dragSrc){ if(!g&&!(e.target.closest('#screen')||e.target.closest('.pcmain'))) return; e.preventDefault(); const s=sources.find(x=>x.id===dragSrc); $$('.stories').forEach(r=>r.classList.remove('hot'));
+    if(e.target.closest('.stories')){ await addStoryFromSource(s); return; } const to=c?shown.findIndex(p=>p.id===c.dataset.id):null; await postFromSource(s,to); render(); toast(to!=null?'그 자리에 게시했어요':'맨 위에 게시했어요'); return; }
+  if(!g) return; e.preventDefault(); if(!c||c.dataset.id===dragId) return;
+  const from=shown.findIndex(p=>p.id===dragId), to=shown.findIndex(p=>p.id===c.dataset.id);
+  const [m]=shown.splice(from,1); shown.splice(to,0,m);
+  [...shown].reverse().forEach((p,i)=>{ if(p.order!==i+1){ p.order=i+1; store.savePost(p); } });
+  render(); note('순서를 바꿨어요');
+});
+
+// 우클릭 메뉴: 스토리 삭제 · 게시물 피드에서 빼기 · 소스 지우기
+let menuSeq=0; const menuMap={};
+function showMenu(e,items,cb){
+  e.preventDefault();
+  if(APP){ const id='m'+(++menuSeq); menuMap[id]=cb; native({op:'menu',id,items}); return; }
+  $$('.ctx').forEach(x=>x.remove()); const m=document.createElement('div'); m.className='ctx';
+  items.forEach((t,i)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=()=>{ m.remove(); cb(i); }; m.appendChild(b); });
+  m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px'; document.body.appendChild(m);
+  setTimeout(()=>document.addEventListener('mousedown',ev=>{ if(!m.contains(ev.target)) m.remove(); },{once:true}),0);
+}
+window.__yinstaMenu=(id,i)=>{ const cb=menuMap[id]; delete menuMap[id]; if(cb&&i>=0) cb(i); };
+document.addEventListener('contextmenu',e=>{
+  const st=e.target.closest('[data-story-id]'); if(st){ const s=stories.find(x=>x.id===st.dataset.storyId); showMenu(e,['스토리 삭제'],()=>ask(`'${s.name}' 스토리를 삭제할까요?`,async()=>{ stories=stories.filter(x=>x!==s); await store.delStory(s.id); render(); note('스토리를 삭제했어요'); },'Delete')); return; }
+  const pe=e.target.closest('.post,.cell'); if(pe){ const p=posts.find(x=>x.id===pe.dataset.id); if(!p) return; showMenu(e,['피드에서 빼기'],async()=>{ await unpost(p); renumber(); render(); note('피드에서 뺐어요 · 사진 소스에 있어요'); }); return; }
+  const sc=e.target.closest('.src'); if(sc){ const s=sources.find(x=>x.id===sc.dataset.src); const pp=posts.find(x=>x.id===s.postedId); showMenu(e,[pp?'피드에서 빼기':'맨 위에 게시','스토리에 올리기','소스에서 지우기'],async i=>{ if(i===0){ if(pp){ await unpost(pp); renumber(); render(); note('피드에서 뺐어요'); } else { await postFromSource(s); render(); note('맨 위에 게시했어요'); } } else if(i===1) addStoryFromSource(s); else ask('이 사진을 소스에서 지울까요?',()=>{ sources=sources.filter(x=>x!==s); store.delSource(s.id); renderSources(); note('소스에서 지웠어요'); },'Delete'); }); return; }
+});
+
+// 설정
+$('#segRatio').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; settings.ratio=b.dataset.v; syncSeg(); store.saveSettings(); render(); });
+$$('.overlay:not(#crop)').forEach(o=>o.addEventListener('mousedown',e=>{ if(e.target===o) o.classList.remove('on'); }));
+
+// 프로필 편집창
+let zoomBefore=1;
+$$('[data-edit]').forEach(b=>b.onclick=()=>{
+  $('#shHandle').value=settings.handle; $('#shName').value=settings.name; $('#shBio').value=settings.bio||'';
+  $('#shFollowers').value=settings.followers; $('#shFollowing').value=settings.following;
+  zoomBefore=settings.avatarZoom||1; $('#shZoom').value=zoomBefore; $('#shAvatar').innerHTML=avInner();
+  $('#sheet').classList.add('on');
+});
+$('#shZoom').addEventListener('input',e=>{ settings.avatarZoom=+e.target.value; const im=$('#shAvatar img'); if(im) im.style.transform=`scale(${settings.avatarZoom})`; });
+$('#shCancel').onclick=()=>{ settings.avatarZoom=zoomBefore; $('#sheet').classList.remove('on'); render(); };
+$('#shDone').onclick=()=>{
+  settings.handle=$('#shHandle').value.trim()||settings.handle; settings.name=$('#shName').value; settings.bio=$('#shBio').value;
+  settings.followers=$('#shFollowers').value; settings.following=$('#shFollowing').value;
+  store.saveSettings(); render(); $('#sheet').classList.remove('on'); note('프로필을 고쳤어요');
+};
+
+// 사진 크기 창 (프로필 격자 클릭) — 끌기는 순서 바꾸기 그대로
+let crP=null, crBefore=null;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+function crShow(){ const css=cropCSS(crP); $$('#crop [data-crbox] img').forEach(im=>{ im.style.cssText=css; }); $('#crZoom').value=crP.cz||1; }
+function openCrop(p){ crP=p; crBefore={cz:p.cz??1,cx:p.cx??50,cy:p.cy??50}; $$('#crop [data-crbox] img').forEach(im=>im.src=p.url); crShow(); $('#crop').classList.add('on'); }
+function closeCrop(save){ if(!crP) return; if(save) store.savePost(crP); else Object.assign(crP,crBefore); crP=null; $('#crop').classList.remove('on'); render(); }
+document.addEventListener('click',e=>{ const c=e.target.closest('.cell'); if(!c||e.target.closest('[data-del]')) return; const p=posts.find(x=>x.id===c.dataset.id); if(p) openCrop(p); });
+$('#crZoom').addEventListener('input',e=>{ if(!crP) return; crP.cz=+e.target.value; crShow(); });
+$('#crReset').onclick=()=>{ if(!crP) return; Object.assign(crP,{cz:1,cx:50,cy:50}); crShow(); };
+$('#crCancel').onclick=()=>closeCrop(false);
+$('#crDone').onclick=()=>closeCrop(true);
+$('#crop').addEventListener('mousedown',e=>{ if(e.target===$('#crop')) closeCrop(false); });   // 바깥 누르면 취소
+$$('#crop [data-crbox]').forEach(box=>{
+  box.addEventListener('pointerdown',e=>{ if(!crP) return; e.preventDefault(); try{ box.setPointerCapture(e.pointerId); }catch(_){}
+    const im=box.querySelector('img'), bw=box.clientWidth, bh=box.clientHeight, z=crP.cz||1;
+    const s=Math.max(bw/im.naturalWidth,bh/im.naturalHeight)*z, ox=im.naturalWidth*s-bw, oy=im.naturalHeight*s-bh;   // 남는 폭·높이(px)
+    const sx=e.clientX, sy=e.clientY, x0=crP.cx??50, y0=crP.cy??50, k=parseFloat(getComputedStyle(document.querySelector('.stage')).zoom)||1;
+    const mv=ev=>{ if(ox>0.5) crP.cx=clamp(x0-(ev.clientX-sx)/k/ox*100,0,100); if(oy>0.5) crP.cy=clamp(y0-(ev.clientY-sy)/k/oy*100,0,100); crShow(); };
+    const up=()=>{ box.removeEventListener('pointermove',mv); box.removeEventListener('pointerup',up); box.removeEventListener('pointercancel',up); };
+    box.addEventListener('pointermove',mv); box.addEventListener('pointerup',up); box.addEventListener('pointercancel',up); });
+  box.addEventListener('wheel',e=>{ if(!crP) return; e.preventDefault(); crP.cz=clamp((crP.cz||1)*Math.exp(-e.deltaY*0.002),1,3); crShow(); },{passive:false});
+});
+document.addEventListener('keydown',e=>{ if(!crP) return; if(e.key==='Escape'){ e.preventDefault(); closeCrop(false); } else if(e.key==='Enter'){ e.preventDefault(); closeCrop(true); } });
+
+// 상태바 시계
+const clockEl=$('#clock');
+function clock(){ const d=new Date(); clockEl.textContent=`${d.getHours()%12||12}:${String(d.getMinutes()).padStart(2,'0')}`; }
+clock(); setInterval(clock,5000);
+
+// 화면 캡처 → 클립보드 (폰 또는 PC 화면)
+let lastShot=null;
+async function captureScreen(){
+  if(typeof html2canvas!=='function'){ toast('Copy failed'); return null; }
+  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  $$('.overlay.on').forEach(o=>o.classList.remove('on'));
+  const target=pcMode?$('#pc'):phone; target.classList.add('capturing'); coverMark(target);
+  try{ return await html2canvas(target,{scale:2,backgroundColor:getComputedStyle(target).backgroundColor,logging:false,onclone:coverClone}); }
+  catch(e){ console.warn(e); toast('Copy failed'); return null; }
+  finally{ target.classList.remove('capturing'); target.querySelectorAll('img[data-cv]').forEach(im=>delete im.dataset.cv); }
+}
+// html2canvas는 object-fit:cover를 무시해 사진이 상자 크기로 늘어남 → 캡처 직전에 잘림 좌표를 계산해 두고(원본), 복제본에서 그 좌표로 배치
+function coverMark(root){
+  root.querySelectorAll('img').forEach(im=>{
+    if(!im.naturalWidth||getComputedStyle(im).objectFit!=='cover') return;
+    const bw=im.clientWidth, bh=im.clientHeight; if(!bw||!bh) return;
+    const st=im.style, z=parseFloat((st.transform.match(/scale\(([\d.]+)\)/)||[])[1])||1, op=(st.objectPosition||'50% 50%').split(' ').map(v=>parseFloat(v)/100);
+    const s=Math.max(bw/im.naturalWidth, bh/im.naturalHeight)*z, w=im.naturalWidth*s, h=im.naturalHeight*s;
+    const p=im.parentElement, ps=getComputedStyle(p);
+    im.dataset.cv=[w,h,(bw-w)*op[0]+parseFloat(ps.paddingLeft),(bh-h)*op[1]+parseFloat(ps.paddingTop)].map(v=>v.toFixed(2)).join(',')+(ps.position==='static'?',r':',')+(ps.overflow==='hidden'?'':'h');
+  });
+}
+function coverClone(doc){
+  doc.querySelectorAll('img[data-cv]').forEach(im=>{
+    const [w,h,x,y,flag]=im.dataset.cv.split(','); const p=im.parentElement;
+    if(flag.includes('r')) p.style.position='relative'; if(flag.includes('h')) p.style.overflow='hidden';
+    Object.assign(im.style,{position:'absolute',left:x+'px',top:y+'px',width:w+'px',height:h+'px',maxWidth:'none',maxHeight:'none',borderRadius:'0',transform:'none',objectPosition:'50% 50%'});
+  });
+}
+async function shareScreen(){
+  
+  const c=await captureScreen(); if(!c) return;
+  if(APP){ native({op:'copyPNG',data:c.toDataURL('image/png')}); return; }   // 결과는 __yinstaCopied로
+  try{ const blob=await new Promise(r=>c.toBlob(r,'image/png')); lastShot=blob; await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); toast('Copied'); }
+  catch(e){ console.warn(e); const url=c.toDataURL('image/png'); $('#shotImg').src=url; $('#shotSave').href=url; $('#shot').classList.add('on'); }
+}
+$('#btnCapture').onclick=shareScreen;
+window.__yinstaCopied=ok=>toast(ok?'Copied':'Copy failed');
+$('#shotCopy').onclick=async()=>{ try{ await navigator.clipboard.write([new ClipboardItem({'image/png':lastShot})]); $('#shot').classList.remove('on'); toast('Copied'); }catch(e){ toast('Copy failed'); } };
+$('#shotClose').onclick=()=>$('#shot').classList.remove('on');
+
+// 확인창 · 토스트
+let askCb=null, askSeq=0; const askMap={};
+function ask(msg,cb,label='삭제'){
+  if(APP){ const id='c'+(++askSeq); askMap[id]=cb; const [m,...rest]=msg.split('\n'); native({op:'confirm',id,msg:m,info:rest.join('\n'),label}); return; }   // 맥 경고창
+  $('#confirmMsg').textContent=msg; $('#confirmYes').textContent=label; askCb=cb; $('#confirm').classList.add('on'); }
+window.__yinstaConfirm=(id,ok)=>{ const cb=askMap[id]; delete askMap[id]; if(ok&&cb) cb(); };
+$('#confirmYes').onclick=()=>{ $('#confirm').classList.remove('on'); const cb=askCb; askCb=null; cb&&cb(); };
+$('#confirmNo').onclick=()=>{ $('#confirm').classList.remove('on'); askCb=null; };
+const note=()=>{};   // 일상 동작(게시·빼기·순서 등)은 알림 없음 — 사용자 요청
+let tt; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2200); }
+
+window.__yinsta={get posts(){return posts},get sources(){return sources},get stories(){return stories},addStoryFiles,addStoryFromSource,get settings(){return settings},addFiles,addSourceFiles,postFromSource,unpost,captureScreen,shareScreen,render,store,native,setTab,get pcMode(){return pcMode},applyZoom};
+
+/* ---------- 시작 ---------- */
+(async()=>{
+  const h=location.hash; if(h) $('#splash').remove();   // #prof / #panels / #pc : 확인용
+  try{ await store.load(); }catch(e){ console.warn(e); }
+  if(h==='#panels'){ settings.panelSettings=true; }
+  if(h==='#pc'){ pcMode=true; document.documentElement.classList.add('pcmode'); }
+  if(h.startsWith('#demo')){ for(let i=0;i<3;i++){ const c=document.createElement('canvas'); c.width=600; c.height=800; const g=c.getContext('2d'); g.fillStyle=['#b55','#5a7','#57b'][i]; g.fillRect(0,0,600,800); posts.push({id:'demo'+i,order:i+1,caption:i?'':'시험 문구',liked:false,likes:null,time:null,url:c.toDataURL('image/jpeg',.8),w:600,h:800}); } }   // 확인용 가짜 게시물(저장 안 함)
+  syncSeg(); applyPanels(); applyZoom(settings.zoom||1); render();
+  if(APP) (async()=>{ for(const s of sources){ try{ if((await fetch(s.thumb)).ok) continue; const th=await resized(s.url,THUMB,0.85); await keep('sources',s.id+'_t',th,s,'thumb'); }catch(e){} } renderSources(); })();   // 예전 소스: 썸네일 없으면 만들어 둠
+  if(h==='#prof'||h==='#panels'||h==='#pc'||h.includes('prof')) setTab('prof');
+  requestAnimationFrame(moveHl);   // 선택 탭 하이라이트 처음 자리
+  if(h.startsWith('#demo')){ const m=h.match(/scroll(\d+)/); if(m) $('#screen').scrollTop=+m[1]; }
+  setTimeout(()=>{ const sp=$('#splash'); if(!sp) return; sp.classList.add('off'); setTimeout(()=>sp.remove(),500); }, 1300);
+  native({op:'ready'}); sendLayout();
+})();
+})();
+</script>
+</body>
+</html>

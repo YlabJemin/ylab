@@ -1,0 +1,125 @@
+// 빈티지 필름 시계 (Infobar 248×58) — 날짜 스탬프(주황 빛번짐) 스타일, 시간 글씨만 다른 4가지
+//   주황 갈색 네거티브 필름 + 지글거리는 입자 + 가끔 스크래치·먼지 + 가장자리 빛샘 + 살짝 깜빡임
+//   가장자리 글씨: DIN Condensed (옛 코닥 필름 가장자리 인쇄 느낌)
+'use strict';
+const VW = 248, VH = 58;
+const VDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const v2 = (n) => String(n).padStart(2, '0');
+const EDGE = "font-family='DIN Condensed, Futura, Helvetica Neue, sans-serif' font-weight='700'";
+const FONTS = {
+  din:    { label: 'D1. 지금 글씨체 (DIN Condensed)',       kind: 'text', fam: "'DIN Condensed', 'Futura', sans-serif", w: 700, size: 30 },
+  seg:    { label: 'D2. 7세그먼트 (필름 카메라 날짜 스탬프 숫자)', kind: 'seg' },
+  dot:    { label: 'D3. 도트 (점으로 찍힌 숫자)',            kind: 'dot' },
+  futura: { label: 'D4. 퓨추라 컨덴스드 (70년대 포스터)',     kind: 'text', fam: "'Futura', 'DIN Condensed', sans-serif", w: 800, size: 28, stretch: 'condensed' },
+};
+const STAMP = '#ff8a3c', STAMP_GLOW = '#ff6a1a';
+// 7세그먼트: 글자당 a~g 켜짐
+const SEG = { '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg', '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg' };
+function segText(str, cx, base, h, fill) {
+  const w = h * 0.52, t = h * 0.13, sk = h * 0.1, gap = h * 0.16;      // 글자 폭·획 두께·기울기
+  const colW = h * 0.22, total = [...str].reduce((acc, ch) => acc + (ch === ':' ? colW : w) + gap, -gap);
+  let x = cx - total / 2, out = '';
+  const P = (pts, ox, oy) => `<polygon points='${pts.map(([px, py]) => `${(ox + px + sk * (1 - (py) / h)).toFixed(2)},${(oy + py).toFixed(2)}`).join(' ')}' fill='${fill}'/>`;
+  for (const ch of str) {
+    const top = base - h;
+    if (ch === ':') { out += `<rect x='${(x + colW / 2 - t / 2 + sk * 0.6).toFixed(2)}' y='${(top + h * 0.28).toFixed(2)}' width='${t}' height='${t}' fill='${fill}'/><rect x='${(x + colW / 2 - t / 2 + sk * 0.3).toFixed(2)}' y='${(top + h * 0.66).toFixed(2)}' width='${t}' height='${t}' fill='${fill}'/>`; x += colW + gap; continue; }
+    const on = SEG[ch] || '', m = h / 2, i = t * 0.15;
+    const H = (y) => [[i + t / 2, y], [i + t, y - t / 2], [w - i - t, y - t / 2], [w - i - t / 2, y], [w - i - t, y + t / 2], [i + t, y + t / 2]];
+    const V = (xx, y0, y1) => [[xx, y0 + i + t / 2], [xx + t / 2, y0 + i + t], [xx + t / 2, y1 - i - t], [xx, y1 - i - t / 2], [xx - t / 2, y1 - i - t], [xx - t / 2, y0 + i + t]];
+    const segs = { a: H(t / 2), g: H(m), d: H(h - t / 2), f: V(t / 2, 0, m), e: V(t / 2, m, h), b: V(w - t / 2, 0, m), c: V(w - t / 2, m, h) };
+    for (const k of 'abcdefg') out += P(segs[k], x, top).replace(`fill='${fill}'`, `fill='${fill}' opacity='${on.includes(k) ? 1 : 0.07}'`);
+    x += w + gap;
+  }
+  return out;
+}
+// 도트 5×7 글꼴
+const DOT = { '0': ['01110','10001','10011','10101','11001','10001','01110'], '1': ['00100','01100','00100','00100','00100','00100','01110'],
+  '2': ['01110','10001','00001','00010','00100','01000','11111'], '3': ['11111','00010','00100','00010','00001','10001','01110'],
+  '4': ['00010','00110','01010','10010','11111','00010','00010'], '5': ['11111','10000','11110','00001','00001','10001','01110'],
+  '6': ['00110','01000','10000','11110','10001','10001','01110'], '7': ['11111','00001','00010','00100','01000','01000','01000'],
+  '8': ['01110','10001','10001','01110','10001','10001','01110'], '9': ['01110','10001','10001','01111','00001','00010','01100'],
+  ':': ['0','0','1','0','1','0','0'] };
+function dotText(str, cx, base, h, fill) {
+  const p = h / 7, r = p * 0.36, gap = p * 1.2;
+  const total = [...str].reduce((acc, ch) => acc + DOT[ch][0].length * p + gap, -gap);
+  let x = cx - total / 2, out = '';
+  for (const ch of str) { const g = DOT[ch];
+    g.forEach((row, ry) => [...row].forEach((v, rx) => { out += `<circle cx='${(x + rx * p + p / 2).toFixed(2)}' cy='${(base - h + ry * p + p / 2).toFixed(2)}' r='${r.toFixed(2)}' fill='${fill}' opacity='${v === '1' ? 1 : 0.06}'/>`; }));
+    x += row0w(g) * p + gap; }
+  return out;
+}
+const row0w = (g) => g[0].length;
+const SHOW_SEC = { v: null };   // 초 표시 (vintage() 에서 채움)
+function timeArt(F, time, glow) {
+  const fill = glow ? STAMP_GLOW : STAMP;
+  if (F.kind === 'seg') return segText(time, 124, 41, 24, fill);
+  if (F.kind === 'dot') return dotText(time, 124, 40, 22, fill);
+  // 시:분 크게 + 초는 같은 프레임 안에 작게 (secs 가 있으면)
+  const sec = SHOW_SEC.v != null ? `<tspan font-size='${F.size * 0.42}' dx='2'>${SHOW_SEC.v}</tspan>` : '';
+  const fsz = SHOW_SEC.v != null ? F.size * 0.8 : F.size;                // 초가 붙으면 프레임 안에 들어가게 조금 작게
+  return `<text x='124' y='${SHOW_SEC.v != null ? 38.5 : 40}' font-family="${F.fam}" font-weight='${F.w}' font-size='${fsz}' ${F.stretch ? `font-stretch='${F.stretch}'` : ''} fill='${fill}' text-anchor='middle' letter-spacing='${SHOW_SEC.v != null ? 0.6 : 1.5}'>${time}${sec}</text>`;
+}
+// 좌우 글씨 (숫자 창 양옆). 각 함수: d → SVG 조각
+const EDGEC = '#f2b25a';
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const KDAY = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+const FUT = "font-family='Futura, sans-serif'";
+const L = (y, size, txt, extra = '') => `<text x='9' y='${y}' ${extra || EDGE} font-size='${size}' fill='${EDGEC}'>${txt}</text>`;
+const R = (y, size, txt, extra = '') => `<text x='${VW - 9}' y='${y}' ${extra || EDGE} font-size='${size}' fill='${EDGEC}' text-anchor='end'>${txt}</text>`;
+const SIDE_FONT = { v: null, w: 400, scale: 1 };   // ④ 좌우 글씨체 (null 이면 DIN Condensed)
+const SIDES = {
+  kodak:   (d) => L(27, 9, 'KODAK 400') + L(38, 8, 'SAFETY FILM') + R(27, 9, `${VDAYS[d.getDay()]} ${d.getMonth() + 1}.${v2(d.getDate())}`) + R(38, 8, `${v2(d.getSeconds())}S`),
+  gold:    (d) => L(25, 8.5, 'KODAK GOLD') + L(36, 8.5, '200 · 24 EXP') + R(26, 13, `${MONTHS[d.getMonth()]} ${v2(d.getDate())}`, FUT + " font-weight='700'") + R(38, 8, VDAYS[d.getDay()]),
+  korean:  (d) => L(27, 9.5, '오늘의 필름', "font-family='Apple SD Gothic Neo' font-weight='700'") + L(39, 8, `${d.getFullYear()}`) + R(27, 10, KDAY[d.getDay()], "font-family='Apple SD Gothic Neo' font-weight='700'") + R(39, 8.5, `${d.getMonth() + 1}월 ${d.getDate()}일`, "font-family='Apple SD Gothic Neo' font-weight='600'"),
+  stamp:   (d) => `<text x='9' y='34' ${FUT} font-weight='800' font-size='14' fill='#ff8a3c'>'${String(d.getFullYear()).slice(2)}</text>` + L(43, 6.5, 'DATE BACK') + `<text x='${VW - 9}' y='31' ${FUT} font-weight='800' font-size='12' fill='#ff8a3c' text-anchor='end'>${d.getMonth() + 1} ${v2(d.getDate())}</text>` + R(42, 7.5, `${VDAYS[d.getDay()]} · ${v2(d.getSeconds())}`),
+  portra:  (d) => { const ff = SIDE_FONT.v ? `font-family="'${SIDE_FONT.v}', sans-serif" font-weight='${SIDE_FONT.w || 400}'` : '';
+                     const k = SIDE_FONT.scale || 1;
+                     return L(25, 9 * k, 'PORTRA 400', ff) + L(36, 7.5 * k, `☼ FRAME ${(d.getMinutes() % 36) + 1}`, ff) + R(25, 9 * k, `${VDAYS[d.getDay()]}`, ff) + R(36, 9 * k, `${MONTHS[d.getMonth()]} ${v2(d.getDate())}`, ff); },
+};
+const SIDE_LABEL = { kodak: '지금 (KODAK 400 / SAT 10.03 / 초)', gold: '① KODAK GOLD 200 · 24 EXP / OCT 03 · SAT', korean: '② 한글: 오늘의 필름 · 2026 / 토요일 · 10월 3일', stamp: "③ 날짜 스탬프식: '26 · DATE BACK / 10 03 · SAT · 초", portra: '④ PORTRA 400 · ☼ FRAME 번호 / SAT · OCT 03' };
+// 결정적 난수 (같은 프레임이면 같은 값)
+const rnd = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+
+function vintage(fontKey, d, ms, sideKey = 'kodak') {
+  const F = FONTS[fontKey];
+  const speed = 16, off = (ms / 1000 * speed);
+  const fr = Math.floor(ms / 90);                                         // 입자·흠집은 약 11장/초로 바뀜
+  let holes = '', frames = '';
+  for (let x = -14 + 4 - off % 14; x < VW + 14; x += 14) holes += `<rect x='${x.toFixed(1)}' y='4.5' width='7' height='5' rx='1.4' fill='#120a05'/><rect x='${x.toFixed(1)}' y='48.5' width='7' height='5' rx='1.4' fill='#120a05'/>`;
+  for (let x = -96 - off % 96; x < VW + 96; x += 96) frames += `<rect x='${(x + 2).toFixed(1)}' y='12' width='92' height='34' rx='2' fill='#2b1608' opacity='0.55'/>`;
+  // 가장자리 인쇄: 흘러가는 숫자 (필름 번호)
+  let edge = '';
+  for (let k = -1; k < 4; k++) {
+    const x = k * 96 - off % 96 + 30, num = ((Math.floor(off / 96) + k) % 36 + 36) % 36 + 1;   // 필름 칸 번호 1~36
+    edge += `<text x='${x.toFixed(1)}' y='3.6' ${EDGE} font-size='4.2' fill='#f2b25a' opacity='0.9'>${num}  ▶  ${num}A</text>`;
+  }
+  // 스크래치(가끔), 먼지
+  let scratches = '';
+  for (let k = 0; k < 2; k++) if (rnd(fr * 7 + k) > 0.72) { const x = rnd(fr * 3 + k * 11) * VW; scratches += `<rect x='${x.toFixed(1)}' y='0' width='${(0.4 + rnd(fr + k) * 0.6).toFixed(2)}' height='${VH}' fill='#fff2d8' opacity='${(0.18 + rnd(fr * 5 + k) * 0.3).toFixed(2)}'/>`; }
+  for (let k = 0; k < 5; k++) { const x = rnd(fr * 13 + k) * VW, y = rnd(fr * 17 + k * 3) * VH, r = 0.4 + rnd(fr + k * 7) * 0.9; scratches += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${r.toFixed(2)}' fill='${k % 2 ? '#1a0e06' : '#fbe9c8'}' opacity='0.55'/>`; }
+  const flick = 0.04 * (rnd(fr * 1.7) - 0.5);                             // 밝기 깜빡임
+  const time = `${v2(d.getHours())}:${v2(d.getMinutes())}`;
+  SHOW_SEC.v = sideKey === 'portra' ? v2(d.getSeconds()) : null;          // ④는 초를 가운데 프레임 안에
+  const glow = `<g filter='url(#blur)' opacity='0.85'>${timeArt(F, time, true)}</g>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='${VW}' height='${VH}' viewBox='0 0 ${VW} ${VH}'>
+  <defs>
+    <linearGradient id='base' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#6a3615'/><stop offset='0.45' stop-color='#7d4318'/><stop offset='1' stop-color='#5c2d11'/></linearGradient>
+    <radialGradient id='leak' cx='0.98' cy='0.1' r='0.6'><stop offset='0' stop-color='#ffb066' stop-opacity='0.55'/><stop offset='1' stop-color='#ff7a2a' stop-opacity='0'/></radialGradient>
+    <radialGradient id='vig' cx='0.5' cy='0.5' r='0.75'><stop offset='0.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='0.55'/></radialGradient>
+    <filter id='grain' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='${fr % 97}'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.55 0'/></filter>
+    <filter id='blur'><feGaussianBlur stdDeviation='1.6'/></filter>
+  </defs>
+  <rect width='${VW}' height='${VH}' fill='#0b0b0c'/>
+  <rect x='0' y='1.5' width='${VW}' height='55' fill='url(#base)'/>
+  ${frames}${holes}${edge}
+  <rect x='74' y='11' width='100' height='36' rx='2.5' fill='#160b04' stroke='#c9733a' stroke-width='1' stroke-opacity='0.8'/>
+  ${glow}${timeArt(F, time, false)}
+  ${SIDES[sideKey](d)}
+  ${scratches}
+  <rect width='${VW}' height='${VH}' filter='url(#grain)' opacity='0.5'/>
+  <rect width='${VW}' height='${VH}' fill='url(#leak)'/>
+  <rect width='${VW}' height='${VH}' fill='url(#vig)'/>
+  <rect width='${VW}' height='${VH}' fill='${flick > 0 ? '#fff4e0' : '#000'}' opacity='${Math.abs(flick).toFixed(3)}'/>
+</svg>`;
+}
+if (typeof module !== 'undefined') module.exports = { vintage, FONTS, VW, VH };

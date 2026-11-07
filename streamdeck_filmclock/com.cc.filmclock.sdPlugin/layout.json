@@ -1,0 +1,6 @@
+{
+  "id": "com.cc.filmclock.layout",
+  "items": [
+    { "key": "canvas", "type": "pixmap", "rect": [0, 0, 232, 50], "value": "", "zOrder": 0 }
+  ]
+}
